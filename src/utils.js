@@ -1,7 +1,12 @@
-export function resolveMonthBudget(globalBudgets, monthOverrides, categoryId) {
+export function resolveMonthBudget(budgetEntries, monthOverrides, categoryId, year, month) {
   if (monthOverrides && monthOverrides[categoryId] !== undefined) return monthOverrides[categoryId];
-  if (globalBudgets && globalBudgets[categoryId] !== undefined) return globalBudgets[categoryId];
-  return null;
+  const entries = budgetEntries?.[categoryId] || [];
+  if (!entries.length) return null;
+  const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const entry = entries.find(e =>
+    e.startDate <= key && (e.endDate === null || e.endDate >= key)
+  );
+  return entry ? entry.amount : null;
 }
 
 export function isIncomeCat(categories, catId) {
@@ -16,13 +21,21 @@ export function isIncomeCat(categories, catId) {
   return false;
 }
 
-export function resolveMonthIncome(incomeSources, manualLegacy, monthAdjustments) {
+export function resolveMonthIncome(incomeSources, manualLegacy, monthAdjustments, year, month) {
   if (!incomeSources || incomeSources.length === 0) return manualLegacy;
   return incomeSources
     .filter(s => s.active)
     .reduce((sum, source) => {
       const adj = (monthAdjustments || []).find(a => a.sourceId === source.id);
-      return sum + (adj ? adj.amount : source.amount);
+      if (adj) return sum + adj.amount;
+      if (source.entries && year !== undefined) {
+        const key = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const entry = source.entries.find(e =>
+          e.startDate <= key && (e.endDate === null || e.endDate >= key)
+        );
+        return sum + (entry ? entry.amount : 0);
+      }
+      return sum + (source.amount || 0);
     }, 0);
 }
 
@@ -56,10 +69,67 @@ export function iterateMonths(startYear, startMonth, endYear, endMonth) {
   return months;
 }
 
+export function buildForecast(
+  year,
+  startingBalance,
+  incomeSources,
+  budgetEntries,
+  allTxns,
+  allIncomeAdjusts,
+  allOverrides,
+  categories
+) {
+  const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const forecast = [];
+  let cumulativeNet = 0;
+
+  for (let m = 0; m < 12; m++) {
+    const key = `${year}-${m}`;
+    const txns = allTxns[key] || [];
+    const isActual = txns.length > 0;
+    const overrides = allOverrides[key] || {};
+    const adjustments = allIncomeAdjusts[key] || [];
+
+    const actualIncome = txns
+      .filter(t => t.type === 'income' || isIncomeCat(categories, t.category))
+      .reduce((s, t) => s + t.amount, 0);
+    const actualExpenses = txns
+      .filter(t => t.type === 'expense' && !isIncomeCat(categories, t.category))
+      .reduce((s, t) => s + t.amount, 0);
+
+    const plannedIncome = resolveMonthIncome(incomeSources, 0, adjustments, year, m);
+    // Sum only top-level (non-child) non-income categories to avoid double-counting
+    const plannedExpenses = categories
+      .filter(c => !c.parentId && !isIncomeCat(categories, c.id))
+      .reduce((s, c) => {
+        const limit = resolveMonthBudget(budgetEntries, overrides, c.id, year, m);
+        return s + (limit ?? 0);
+      }, 0);
+
+    const net = isActual ? actualIncome - actualExpenses : plannedIncome - plannedExpenses;
+    cumulativeNet += net;
+
+    forecast.push({
+      year,
+      month: m,
+      label: `${MONTHS_SHORT[m]} ${year}`,
+      plannedIncome,
+      plannedExpenses,
+      actualIncome,
+      actualExpenses,
+      isActual,
+      net,
+      runningBalance: startingBalance + cumulativeNet,
+    });
+  }
+
+  return forecast;
+}
+
 export function projectScenario(
   scenario,
   incomeSources,
-  globalBudgets,
+  budgetEntries,
   allTxns,
   allIncomeAdjusts,
   allOverrides,
@@ -80,10 +150,15 @@ export function projectScenario(
     let monthlyIncome = 0;
     // Start with real income sources
     const activeSources = incomeSources.filter(s => s.active);
+    const baseKey = `${year}-${String(month + 1).padStart(2, '0')}`;
     const resolvedSources = activeSources.map(s => {
       const scenarioChange = scenario.incomeChanges.find(c => c.sourceId === s.id);
-      if (scenarioChange) {
-        return { ...s, amount: scenarioChange.monthlyAmount };
+      if (scenarioChange) return { ...s, amount: scenarioChange.monthlyAmount };
+      if (s.entries) {
+        const entry = s.entries.find(e =>
+          e.startDate <= baseKey && (e.endDate === null || e.endDate >= baseKey)
+        );
+        return { ...s, amount: entry ? entry.amount : 0 };
       }
       return s;
     });
@@ -110,7 +185,7 @@ export function projectScenario(
       // categories that have a global budget set
       const budgetedCategories = categories.filter(c => !isIncomeCat(categories, c.id));
       budgetedCategories.forEach(cat => {
-        let limit = resolveMonthBudget(globalBudgets, allOverrides[key] || {}, cat.id);
+        let limit = resolveMonthBudget(budgetEntries, allOverrides[key] || {}, cat.id, year, month);
         
         // Apply scenario categoryChanges
         const scenarioChange = (scenario.categoryChanges || []).find(c => c.categoryId === cat.id);

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { resolveMonthBudget } from "./utils";
 
 const COLORS = [
   { label: 'Blue', value: '#378ADD' },
@@ -11,7 +12,10 @@ const COLORS = [
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-export default function ScenarioBuilder({ existing, incomeSources, globalBudgets, categories, onSave, onCancel }) {
+export default function ScenarioBuilder({ existing, incomeSources, budgetEntries, categories, onSave, onCancel }) {
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(existing || {
     id: `sc-${Date.now()}`,
@@ -239,15 +243,16 @@ export default function ScenarioBuilder({ existing, incomeSources, globalBudgets
             
             <h4 style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>Category Budget Adjustments</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32 }}>
-              {categories.filter(c => !c.isIncome && !c.parentId && globalBudgets[c.id] !== undefined).map(cat => {
+              {categories.filter(c => !c.isIncome && !c.parentId && resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth) !== null).map(cat => {
                 const change = form.categoryChanges.find(cc => cc.categoryId === cat.id);
+                const baseAmount = resolveMonthBudget(budgetEntries, {}, cat.id, curYear, curMonth);
                 return (
                   <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 30px 120px', alignItems: 'center', gap: 12, padding: '8px 12px', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color }} />
                       <span style={{ fontSize: 14 }}>{cat.label}</span>
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{fmt(globalBudgets[cat.id])}/mo</span>
+                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{fmt(baseAmount)}/mo</span>
                     <span style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}>→</span>
                     <input 
                       className="input-f" 

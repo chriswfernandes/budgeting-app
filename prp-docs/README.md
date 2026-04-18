@@ -9,31 +9,43 @@ Stack: React with hooks, inline CSS, no external UI libraries, no router
 
 ## PRP Index
 
-| # | Document | Summary | Depends on |
-|---|---|---|---|
-| 01 | `PRP-01-data-architecture.md` | Storage schema, shared utility functions, migration hook | — |
-| 02 | `PRP-02-budget-tab.md` | Budget tab, global category limits, income sources, month override panel | PRP-01 |
-| 03 | `PRP-03-budget-progress.md` | Progress bars, forecast warnings, over-budget indicators in month + overview | PRP-02 |
-| 04 | `PRP-04-scenario-builder.md` | Scenario data model, projection engine, 4-step wizard, projection view | PRP-01, PRP-02 |
-| 4.5 | `PRP-04.5-historical-data.md` | Historical data (previous years), year discovery during CSV import | — |
-| 4.5.1 | `PRP-04.5.1-year-budgets.md` | Year-specific global budgets with migration | 4.5 |
-| 4.5.2 | `PRP-04.5.2-advanced-classify.md` | Advanced classification UX, conditional rules, inline categories | 4.5.1 |
-| 05 | `PRP-05-scenario-types.md` | 3 templates (savings goal, income loss, parental leave), EI estimator, break-even finder | PRP-04 |
-| 06 | `PRP-06-comparison-apply.md` | Side-by-side comparison, sensitivity sliders, apply to plan, export | PRP-05 |
+| # | Document | Status | Summary | Depends on |
+|---|---|---|---|---|
+| 01 | `PRP-01-data-architecture.md` | ✅ Done | Storage schema, shared utility functions, migration hook | — |
+| 02 | `PRP-02-budget-tab.md` | ✅ Done | Budget tab, global category limits, income sources, month override panel | PRP-01 |
+| 03 | `PRP-03-budget-progress.md` | ✅ Done | Progress bars, forecast warnings, over-budget indicators in month + overview | PRP-02 |
+| 04 | `PRP-04-scenario-builder.md` | ✅ Done | Scenario data model, projection engine, 4-step wizard, projection view | PRP-01, PRP-02 |
+| 4.5 | `PRP-04.5-historical-data.md` | ✅ Done | Historical data (previous years), year discovery during CSV import | — |
+| 4.5.1 | `PRP-04.5.1-year-budgets.md` | ✅ Done | Year-specific global budgets with migration | 4.5 |
+| 4.5.2 | `PRP-04.5.2-advanced-classify.md` | ✅ Done | Advanced classification UX, conditional rules, inline categories | 4.5.1 |
+| 05 | `PRP-05-month-view-plan-vs-actual.md` | 🔲 Not started | Categories above the fold in MonthView; plan vs. actual columns; collapsible transaction list | PRP-02, PRP-03 |
+| 06 | `PRP-06-annual-forecast.md` | 🔲 Not started | Annual Forecast tab: planned vs. actual per month, running projected balance, SVG chart | PRP-05 |
+| 07 | `PRP-07-account-balance-tracking.md` | 🔲 Not started | Parse balance column from checking CSVs; store per month; display in Overview, Month, Forecast | PRP-06 |
 
 ---
 
 ## Implementation order
 
 ```
-PRP-01  →  PRP-02  →  PRP-03
-                  ↘
-                   PRP-04  →  PRP-05  →  PRP-06
-                  ↘
-                   PRP-04.5
+PRP-01  →  PRP-02  →  PRP-03  →  PRP-04
+                                 ↘
+                                  PRP-04.5  →  PRP-04.5.1  →  PRP-04.5.2
+                                                                ↓
+                                                           PRP-05  →  PRP-06  →  PRP-07
 ```
 
-PRP-03 and PRP-04 can be developed in parallel after PRP-02 is complete.
+PRP-05, PRP-06, and PRP-07 build on each other and should be implemented in order.
+
+---
+
+## Deferred / archived PRPs
+
+The following PRPs were scoped but superseded by the above roadmap. They are kept for reference.
+
+| File | Was | Why deferred |
+|---|---|---|
+| `PRP-05-cash-flow-and-calendar-engine.md` | Old PRP-05 | Scheduling/calendar engine — useful later but not the current priority |
+| `PRP-06-comparison-apply.md` | Old PRP-06 | Scenario comparison, sensitivity sliders, apply-to-plan — revisit after PRP-07 |
 
 ---
 
@@ -51,7 +63,7 @@ PRP-03 and PRP-04 can be developed in parallel after PRP-02 is complete.
 
 **Backwards compatibility**: The old `i-{year}-{month}` income key must continue to work. When `incomeSources` is empty, fall back to the legacy key.
 
-**Scenarios never mutate real data** (until explicitly applied via PRP-06's "Apply to plan" flow).
+**Scenarios never mutate real data** (until explicitly applied via the deferred "Apply to plan" flow from the old PRP-06).
 
 ---
 
@@ -62,12 +74,6 @@ PRP-03 and PRP-04 can be developed in parallel after PRP-02 is complete.
 ['housing', 'food', 'transport', 'entertainment', 'shopping',
  'health', 'travel', 'utilities', 'subscriptions', 'income',
  'transfers', 'other']
-
-// 2025 EI constants (PRP-05)
-EI_MAX_WEEKLY_INSURABLE = 63200 / 52   // ~$1,215/week
-EI_STANDARD_RATE = 0.55
-EI_EXTENDED_RATE = 0.33
-EI_MAX_WEEKLY_BENEFIT = 668
 ```
 
 ---

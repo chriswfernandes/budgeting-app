@@ -6,6 +6,7 @@ import OverviewView from "./OverviewView";
 import MonthView from "./MonthView";
 import BudgetView from "./BudgetView";
 import ScenariosView from "./ScenariosView";
+import ForecastView from "./ForecastView";
 import { resolveMonthIncome, isIncomeCat } from "./utils";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -74,7 +75,7 @@ function parseCSV(text, accountType = 'checking') {
     }
     if (isDate(cols[0]) && i === 0) break; 
   }
-  let dateI, descI, withdrawalI, depositI, amtI;
+  let dateI, descI, withdrawalI, depositI, amtI, balanceI;
   if (headerIdx !== -1) {
     const idx = (terms) => headers.findIndex(h => terms.some(t => h.includes(t)));
     dateI = idx(['date']);
@@ -82,10 +83,12 @@ function parseCSV(text, accountType = 'checking') {
     withdrawalI = idx(['withdraw','debit','payment','out','spent']);
     depositI = idx(['deposit','credit','in','received']);
     amtI = idx(['amount','value','total']);
+    balanceI = headers.findIndex(h => /balance|running.?bal|closing.?bal/i.test(h));
   } else {
-    dateI = 0; descI = 1; withdrawalI = 2; depositI = 3; amtI = -1;
+    dateI = 0; descI = 1; withdrawalI = 2; depositI = 3; amtI = -1; balanceI = -1;
   }
   const txns = [];
+  const balanceEntries = [];
   const raw = s => (s||'').replace(/"/g,'').replace(/[$,]/g,'').trim();
   const cleanNum = s => {
     let n = raw(s); if (!n) return 0;
@@ -111,7 +114,7 @@ function parseCSV(text, accountType = 'checking') {
       const d = Math.abs(cleanNum(fields[depositI]));
       if (d > 0) { amount = d; type = 'income'; }
       else if (w > 0) { amount = w; type = 'expense'; }
-    } 
+    }
     if (amount === 0 && amtI >= 0) {
       const a = cleanNum(fields[amtI]); amount = Math.abs(a);
       type = a > 0 ? 'income' : 'expense';
@@ -119,8 +122,20 @@ function parseCSV(text, accountType = 'checking') {
     if (amount !== 0) {
       txns.push({ id: `csv-${i}-${Date.now()}`, date, description: desc, amount, category: null, type, account: accountType });
     }
+    if (balanceI >= 0 && date && fields[balanceI] !== undefined) {
+      const balRaw = fields[balanceI].trim();
+      if (balRaw !== '') {
+        const bal = cleanNum(balRaw);
+        const d = new Date(date);
+        if (!isNaN(d)) balanceEntries.push({ date: d.toISOString().slice(0, 10), balance: bal });
+      }
+    }
   }
-  return txns;
+  let closingBalance = null;
+  if (balanceEntries.length > 0) {
+    closingBalance = balanceEntries.reduce((latest, e) => e.date > latest.date ? e : latest);
+  }
+  return { txns, closingBalance };
 }
 
 const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
@@ -187,12 +202,14 @@ export default function BudgetTracker() {
   const [incomes, setIncomes] = useState({});
   const [rules, setRules]     = useState([]); 
   const [categories, setCategories] = useState(INITIAL_CATEGORIES);
-  const [globalBudgets, setGlobalBudgets]   = useState({}); // PRP-02: Global monthly limits
+  const [budgetEntries, setBudgetEntries]   = useState({}); // PRP-09: { [catId]: BudgetEntry[] }
   const [incomeSources, setIncomeSources]   = useState([]); // PRP-02: Named income streams
   const [monthOverrides, setMonthOverrides] = useState({}); // PRP-02: { "y-m": { catId: limit } }
   const [incomeAdjusts, setIncomeAdjusts]   = useState({}); // PRP-02: { "y-m": [ { sourceId, amount } ] }
-  const [scenarios, setScenarios]         = useState([]); 
-  const [savingsGoals, setSavingsGoals]   = useState([]); 
+  const [scenarios, setScenarios]         = useState([]);
+  const [savingsGoals, setSavingsGoals]   = useState([]);
+  const [forecastStartBalances, setForecastStartBalances] = useState({});
+  const [accountBalances, setAccountBalances] = useState({});
   const [queue, setQueue]     = useState([]);
   const [qIdx, setQIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -211,13 +228,40 @@ export default function BudgetTracker() {
       const sy = await store.get('budget-years') || [new Date().getFullYear()];
       const sr = await store.get('budget-rules') || [];
       const sc = await store.get('budget-categories') || INITIAL_CATEGORIES;
-      const gb = await store.get('budget-global') || {};
-      const is = await store.get('income-sources') || [];
+      const be = await store.get('budget-entries') || {};
+      let is = await store.get('income-sources') || [];
+      // PRP-10: migrate legacy flat-amount sources to entries format
+      if (is.some(s => !s.entries && s.amount !== undefined)) {
+        is = is.map(s => {
+          if (s.entries) return s;
+          const { amount, ...rest } = s;
+          return { ...rest, entries: amount > 0 ? [{ id: `ie-${Date.now()}-${s.id}`, amount, startDate: '2000-01', endDate: null }] : [] };
+        });
+        await store.set('income-sources', is);
+      }
       const ssn = await store.get('scenarios') || [];
       const ssg = await store.get('savings-goals') || [];
-      
+
+      // Load forecast starting balances for all known years
+      const fsb = {};
+      for (const y of sy) {
+        const bal = await store.get(`forecast-start-${y}`);
+        if (bal != null) fsb[y] = bal;
+      }
+
+      // Load account balance records for all known years/months
+      const abs = {};
+      for (const y of sy) {
+        for (let m = 0; m < 12; m++) {
+          const rec = await store.get(`balance-${y}-${m}`);
+          if (rec) abs[`balance-${y}-${m}`] = rec;
+        }
+      }
+
       setYears(sy); setYear(sy[sy.length - 1]); setRules(sr); setCategories(sc);
-      setGlobalBudgets(gb); setIncomeSources(is); setScenarios(ssn); setSavingsGoals(ssg);
+      setBudgetEntries(be); setIncomeSources(is); setScenarios(ssn); setSavingsGoals(ssg);
+      setForecastStartBalances(fsb);
+      setAccountBalances(abs);
       setLoading(false);
     })();
   }, []);
@@ -227,21 +271,6 @@ export default function BudgetTracker() {
     (async () => {
       const t = {}, inc = {}, movr = {}, iadj = {};
       
-      // Load year-specific global budget
-      const gb = await store.get(`budget-global-${year}`);
-      if (gb) {
-        setGlobalBudgets(gb);
-      } else {
-        // Migration: If no year-specific budget exists, try to copy from legacy or use empty
-        const legacyGb = await store.get('budget-global');
-        if (legacyGb) {
-          await store.set(`budget-global-${year}`, legacyGb);
-          setGlobalBudgets(legacyGb);
-        } else {
-          setGlobalBudgets({});
-        }
-      }
-
       for (let m = 0; m < 12; m++) {
         const key = `${year}-${m}`;
         const td = await store.get(`t-${year}-${m}`);
@@ -254,10 +283,24 @@ export default function BudgetTracker() {
         if (ovr) movr[key] = ovr;
         if (adj) iadj[key] = adj;
       }
-      setTxns(t); 
+      setTxns(t);
       setIncomes(inc);
       setMonthOverrides(prev => ({ ...prev, ...movr }));
       setIncomeAdjusts(prev => ({ ...prev, ...iadj }));
+
+      // Load forecast starting balance for this year if not already loaded
+      const bal = await store.get(`forecast-start-${year}`);
+      if (bal != null) setForecastStartBalances(prev => ({ ...prev, [year]: bal }));
+
+      // Load account balance records for this year
+      const balRecs = {};
+      for (let m = 0; m < 12; m++) {
+        const rec = await store.get(`balance-${year}-${m}`);
+        if (rec) balRecs[`balance-${year}-${m}`] = rec;
+      }
+      if (Object.keys(balRecs).length > 0) {
+        setAccountBalances(prev => ({ ...prev, ...balRecs }));
+      }
     })();
   }, [year]);
 
@@ -266,12 +309,23 @@ export default function BudgetTracker() {
   const saveRules = async (newRules) => { setRules(newRules); await store.set('budget-rules', newRules); };
   const saveCategories = async (newCats) => { setCategories(newCats); await store.set('budget-categories', newCats); };
   
-  const saveGlobalBudgets = async (data) => {
-    setGlobalBudgets(data);
-    await store.set(`budget-global-${year}`, data);
+  const saveBudgetEntries = async (data) => {
+    setBudgetEntries(data);
+    await store.set('budget-entries', data);
   };
   const saveIncomeSources = async (data) => { setIncomeSources(data); await store.set('income-sources', data); };
   const saveScenarios = async (data) => { setScenarios(data); await store.set('scenarios', data); };
+  const saveForecastStart = async (y, amount) => {
+    setForecastStartBalances(prev => ({ ...prev, [y]: amount }));
+    await store.set(`forecast-start-${y}`, amount);
+  };
+  const saveAccountBalance = async (y, m, record) => {
+    const key = `balance-${y}-${m}`;
+    const existing = accountBalances[key];
+    if (existing && existing.date >= record.date) return;
+    setAccountBalances(prev => ({ ...prev, [key]: record }));
+    await store.set(key, record);
+  };
   const saveMonthOverride = async (y, m, data) => {
     const key = `${y}-${m}`;
     setMonthOverrides(prev => ({ ...prev, [key]: data }));
@@ -290,7 +344,7 @@ export default function BudgetTracker() {
     const overrides = monthOverrides[key] || {};
     const adjustments = incomeAdjusts[key] || [];
 
-    const totalIncome = resolveMonthIncome(incomeSources, legacyInc, adjustments);
+    const totalIncome = resolveMonthIncome(incomeSources, legacyInc, adjustments, y, m);
     const expenses = list.filter(t => !isIncomeCatLocal(t.category) && t.type !== 'income').reduce((s,t) => s + t.amount, 0);
     const txnIncome = list.filter(t => isIncomeCatLocal(t.category) || t.type === 'income').reduce((s,t) => s + t.amount, 0);
     const effectiveIncome = totalIncome + txnIncome;
@@ -314,7 +368,7 @@ export default function BudgetTracker() {
     const file = e.target.files[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = async evt => {
-      const parsed = parseCSV(evt.target.result, activeImportAccount);
+      const { txns: parsed, closingBalance } = parseCSV(evt.target.result, activeImportAccount);
       if (!parsed.length) return alert('No transactions found.');
       const activeRules = rules.filter(r => r.active);
       const toManualQueue = []; const autoClassifiedGroups = {}; const newYearsSet = new Set(years);
@@ -339,6 +393,12 @@ export default function BudgetTracker() {
       if (newYearsSet.size > years.length) {
         const updatedYears = Array.from(newYearsSet).sort();
         setYears(updatedYears); await store.set('budget-years', updatedYears);
+      }
+      if (closingBalance && activeImportAccount === 'checking') {
+        const d = new Date(closingBalance.date);
+        if (!isNaN(d)) {
+          await saveAccountBalance(d.getFullYear(), d.getMonth(), { ...closingBalance, source: 'csv' });
+        }
       }
       if (toManualQueue.length > 0) { setQueue(toManualQueue); setQIdx(0); setView('classify'); }
       else { alert('Import complete!'); setView(month !== null ? 'month' : 'overview'); }
@@ -400,6 +460,7 @@ export default function BudgetTracker() {
           <div style={{ display:'flex', gap:4 }}>
             <button className={`nav-tab ${view === 'budget' ? 'active' : ''}`} onClick={() => { setView('budget'); setMonth(null); }}>Budget</button>
             <button className={`nav-tab ${view === 'overview' ? 'active' : ''}`} onClick={() => { setView('overview'); setMonth(null); }}>Overview</button>
+            <button className={`nav-tab ${view === 'forecast' ? 'active' : ''}`} onClick={() => { setView('forecast'); setMonth(null); }}>Forecast</button>
             <button className={`nav-tab ${view === 'scenarios' ? 'active' : ''}`} onClick={() => { setView('scenarios'); setMonth(null); }}>Scenarios</button>
             {month !== null && <button className={`nav-tab ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>{MONTHS[month]}</button>}
             <button className={`nav-tab ${view === 'rules' ? 'active' : ''}`} onClick={() => setView('rules')}>Rules</button>
@@ -416,15 +477,37 @@ export default function BudgetTracker() {
       </div>
       <div style={{ maxWidth:1100, margin:'0 auto', padding:'32px 24px' }}>
         {view === 'classify' && <ClassifyView queue={queue} idx={qIdx} categories={categories} onClassify={classify} onSkip={() => classify(queue[qIdx], null)} onDone={done} onSaveCategories={saveCategories} />}
-        {view === 'overview' && <OverviewView year={year} yearSummary={yearSummary} monthData={monthData} categories={categories} globalBudgets={globalBudgets} monthOverrides={monthOverrides} onSelectMonth={m => { setMonth(m); setView('month'); }} />}
+        {view === 'overview' && <OverviewView year={year} yearSummary={yearSummary} monthData={monthData} categories={categories} budgetEntries={budgetEntries} monthOverrides={monthOverrides} accountBalances={accountBalances} onSelectMonth={m => { setMonth(m); setView('month'); }} />}
+        {view === 'forecast' && (
+          <ForecastView
+            year={year}
+            incomeSources={incomeSources}
+            budgetEntries={budgetEntries}
+            categories={categories}
+            allTxns={txns}
+            allIncomeAdjusts={incomeAdjusts}
+            allOverrides={monthOverrides}
+            startingBalance={forecastStartBalances[year] ?? 0}
+            onSaveBalance={amount => saveForecastStart(year, amount)}
+            onNavigateToMonth={(y, m) => { setYear(y); setMonth(m); setView('month'); }}
+            latestAccountBalance={(() => {
+              let latest = null;
+              for (let m = 0; m < 12; m++) {
+                const rec = accountBalances[`balance-${year}-${m}`];
+                if (rec && (!latest || rec.date > latest.date)) latest = rec;
+              }
+              return latest;
+            })()}
+          />
+        )}
         {view === 'rules' && <RulesView rules={rules} categories={categories} onSaveRules={saveRules} />}
         {view === 'categories' && <CategoriesView categories={categories} onSaveCategories={saveCategories} />}
-        {view === 'budget' && <BudgetView categories={categories} globalBudgets={globalBudgets} onSaveGlobalBudgets={saveGlobalBudgets} incomeSources={incomeSources} onSaveIncomeSources={saveIncomeSources} year={year} />}
+        {view === 'budget' && <BudgetView categories={categories} budgetEntries={budgetEntries} onSaveBudgetEntries={saveBudgetEntries} incomeSources={incomeSources} onSaveIncomeSources={saveIncomeSources} year={year} />}
         {view === 'scenarios' && (
           <ScenariosView 
             scenarios={scenarios}
             incomeSources={incomeSources}
-            globalBudgets={globalBudgets}
+            budgetEntries={budgetEntries}
             categories={categories}
             allTxns={txns}
             allIncomeAdjusts={incomeAdjusts}
@@ -438,7 +521,7 @@ export default function BudgetTracker() {
             month={month}
             data={monthData(year, month)}
             categories={categories}
-            globalBudgets={globalBudgets}
+            budgetEntries={budgetEntries}
             incomeSources={incomeSources}
             monthOverrides={monthOverrides[`${year}-${month}`] || {}}
             incomeAdjustments={incomeAdjusts[`${year}-${month}`] || []}
@@ -450,6 +533,14 @@ export default function BudgetTracker() {
             onDelete={deleteTxn}
             onImport={triggerImport}
             onAddManual={addManual}
+            accountBalance={accountBalances[`balance-${year}-${month}`] || null}
+            lastKnownBalance={(() => {
+              for (let m = month - 1; m >= 0; m--) {
+                const rec = accountBalances[`balance-${year}-${m}`];
+                if (rec) return rec;
+              }
+              return null;
+            })()}
           />
         )}
       </div>

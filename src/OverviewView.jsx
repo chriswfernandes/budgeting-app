@@ -1,9 +1,23 @@
 import { resolveMonthBudget, getCategorySpend, getBudgetStatus } from "./utils";
 
-export default function OverviewView({ year, yearSummary, monthData, categories, globalBudgets, monthOverrides, onSelectMonth }) {
+export default function OverviewView({ year, yearSummary, monthData, categories, budgetEntries, monthOverrides, accountBalances, onSelectMonth }) {
   const s = yearSummary(year); const maxBar = Math.max(...s.monthly.map(m => Math.max(m.totalIncome, m.expenses)), 1); const now = new Date();
   const fmtLocal = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  const latestBalance = (() => {
+    let latest = null;
+    for (let m = 0; m < 12; m++) {
+      const rec = (accountBalances || {})[`balance-${year}-${m}`];
+      if (rec && (!latest || rec.date > latest.date)) latest = rec;
+    }
+    return latest;
+  })();
+
+  const fmtDate = dateStr => {
+    const d = new Date(dateStr);
+    return isNaN(d) ? dateStr : d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
   
   return (
     <div>
@@ -21,6 +35,14 @@ export default function OverviewView({ year, yearSummary, monthData, categories,
           </div>
         ))}
       </div>
+
+      {latestBalance && (
+        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'12px 20px', marginBottom:16, display:'flex', alignItems:'center', gap:16 }}>
+          <span style={{ fontSize:11, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em' }}>Account balance</span>
+          <span style={{ fontSize:16, fontWeight:500, fontFamily:'var(--font-mono)' }}>{fmtLocal(latestBalance.balance)}</span>
+          <span style={{ fontSize:12, color:'var(--color-text-secondary)' }}>as of {fmtDate(latestBalance.date)}</span>
+        </div>
+      )}
 
       <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'20px 20px 16px', marginBottom:28 }}>
         <p style={{ fontSize:11, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:16 }}>Monthly Performance</p>
@@ -47,12 +69,12 @@ export default function OverviewView({ year, yearSummary, monthData, categories,
           // PRP-03: Budget status calculations for Overview
           const overCount = categories.filter(c => {
             const spent = getCategorySpend(d.list, c.id);
-            const limit = resolveMonthBudget(globalBudgets, monthOverrides[`${year}-${i}`] || {}, c.id);
+            const limit = resolveMonthBudget(budgetEntries, monthOverrides[`${year}-${i}`] || {}, c.id, year, i);
             return getBudgetStatus(spent, limit) === 'over';
           }).length;
 
           const hasAnyBudget = categories.some(c =>
-            resolveMonthBudget(globalBudgets, monthOverrides[`${year}-${i}`] || {}, c.id) !== null
+            resolveMonthBudget(budgetEntries, monthOverrides[`${year}-${i}`] || {}, c.id, year, i) !== null
           );
 
           return (

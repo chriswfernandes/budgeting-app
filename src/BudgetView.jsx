@@ -1,212 +1,466 @@
 import { useState } from "react";
+import { resolveMonthBudget } from "./utils";
 
-export default function BudgetView({ categories, globalBudgets, onSaveGlobalBudgets, incomeSources, onSaveIncomeSources, year }) {
-  const [activeTab, setActiveTab] = useState('categories');
+const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
+
+const fmtMonth = yyyyMM => {
+  const [y, m] = yyyyMM.split('-');
+  return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
+};
+
+const hasOverlap = (entries, newStart, newEnd, excludeId = null) => {
+  const end = newEnd || '9999-12';
+  return entries.filter(e => e.id !== excludeId).some(e => {
+    const existEnd = e.endDate || '9999-12';
+    return newStart <= existEnd && end >= e.startDate;
+  });
+};
+
+function EntryList({ entries, onSave, onDelete }) {
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState({ amount: '', startDate: '', endDate: '', noEndDate: true });
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [error, setError] = useState('');
+
+  const resetForm = () => {
+    setForm({ amount: '', startDate: '', endDate: '', noEndDate: true });
+    setError('');
+  };
+
+  const openAdd = () => { resetForm(); setEditingId(null); setAdding(true); };
+  const openEdit = (entry) => {
+    setForm({ amount: String(entry.amount), startDate: entry.startDate, endDate: entry.endDate || '', noEndDate: entry.endDate === null });
+    setEditingId(entry.id);
+    setAdding(false);
+    setError('');
+  };
+
+  const cancelForm = () => { setAdding(false); setEditingId(null); resetForm(); };
+
+  const saveEntry = () => {
+    const amount = parseFloat(form.amount);
+    if (!amount || amount <= 0) { setError('Amount must be greater than 0.'); return; }
+    if (!form.startDate) { setError('Start month is required.'); return; }
+    const endDate = form.noEndDate ? null : (form.endDate || null);
+    if (!form.noEndDate && endDate && endDate < form.startDate) {
+      setError('End month must be after start month.');
+      return;
+    }
+    if (hasOverlap(entries, form.startDate, endDate, editingId)) {
+      const conflict = entries.filter(e => e.id !== editingId).find(e => {
+        const existEnd = e.endDate || '9999-12';
+        const end = endDate || '9999-12';
+        return form.startDate <= existEnd && end >= e.startDate;
+      });
+      setError(`Overlaps with existing entry (${fmtMonth(conflict.startDate)} – ${conflict.endDate ? fmtMonth(conflict.endDate) : 'onwards'}).`);
+      return;
+    }
+    const entry = { id: editingId || `be-${Date.now()}`, amount, startDate: form.startDate, endDate };
+    const updated = editingId
+      ? entries.map(e => e.id === editingId ? entry : e)
+      : [...entries, entry].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    onSave(updated);
+    cancelForm();
+  };
+
+  const sorted = [...entries].sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  return (
+    <div>
+      {sorted.length === 0 && !adding && (
+        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', marginBottom: 16 }}>No budget periods set.</p>
+      )}
+
+      {sorted.length > 0 && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
+          <thead>
+            <tr style={{ background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+              {['From', 'To', 'Amount', ''].map(h => (
+                <th key={h} style={{ padding: '8px 12px', fontWeight: 500, textAlign: h === 'Amount' ? 'right' : 'left', color: 'var(--color-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((e, i) => (
+              <tr key={e.id} style={{ borderBottom: i < sorted.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                <td style={{ padding: '10px 12px' }}>{fmtMonth(e.startDate)}</td>
+                <td style={{ padding: '10px 12px', color: e.endDate ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                  {e.endDate ? fmtMonth(e.endDate) : 'onwards'}
+                </td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{fmt(e.amount)}/mo</td>
+                <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  {confirmDeleteId === e.id ? (
+                    <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--color-text-danger)' }}>Delete?</span>
+                      <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => { onDelete(e.id); setConfirmDeleteId(null); }}>Confirm</button>
+                      <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                    </span>
+                  ) : (
+                    <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                      <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => openEdit(e)}>Edit</button>
+                      <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => setConfirmDeleteId(e.id)}>Delete</button>
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {(adding || editingId) && (
+        <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-secondary)', borderRadius: 'var(--border-radius-md)', padding: 16, marginBottom: 12 }}>
+          <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 12 }}>{editingId ? 'Edit period' : 'Add period'}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>Monthly amount (CAD) *</label>
+              <input className="input-f" type="number" min="0" step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0.00" autoFocus />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>Start month *</label>
+              <input className="input-f" type="month" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>End month</label>
+              <input className="input-f" type="month" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} disabled={form.noEndDate} style={{ opacity: form.noEndDate ? 0.4 : 1 }} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.noEndDate} onChange={e => setForm({ ...form, noEndDate: e.target.checked, endDate: e.target.checked ? '' : form.endDate })} />
+                No end date
+              </label>
+            </div>
+          </div>
+          {error && <p style={{ fontSize: 12, color: 'var(--color-text-danger)', marginBottom: 8 }}>{error}</p>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn-p" style={{ padding: '6px 16px', fontSize: 12 }} onClick={saveEntry}>Save</button>
+            <button className="btn-g" style={{ padding: '6px 12px', fontSize: 12 }} onClick={cancelForm}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {!adding && !editingId && (
+        <button className="btn-g" style={{ fontSize: 12, padding: '6px 14px' }} onClick={openAdd}>+ Add period</button>
+      )}
+    </div>
+  );
+}
+
+export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntries, incomeSources, onSaveIncomeSources, year }) {
+  const [activeTab, setActiveTab] = useState('outgoing');
+
+  // Outgoing tab state
   const [selectedCatId, setSelectedCatId] = useState(null);
-  const [limitInput, setLimitInput] = useState('');
-  
-  const [isEditingIncome, setIsEditingIncome] = useState(null);
-  const [incomeForm, setIncomeForm] = useState({ label: '', amount: '' });
-  const [isAddingIncome, setIsAddingIncome] = useState(false);
 
-  const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
+  // Income tab state
+  const [selectedSourceId, setSelectedSourceId] = useState(null);
+  const [isAddingSource, setIsAddingSource] = useState(false);
+  const [newSourceLabel, setNewSourceLabel] = useState('');
+  const [editingSourceId, setEditingSourceId] = useState(null);
+  const [sourceLabelInput, setSourceLabelInput] = useState('');
+  const [confirmDeleteSourceId, setConfirmDeleteSourceId] = useState(null);
 
-  // --- Category Budget Logic ---
-  const handleSelectCat = (cat) => {
-    setSelectedCatId(cat.id);
-    setLimitInput(globalBudgets[cat.id]?.toString() || '');
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth();
+
+  // ── Outgoing helpers ──────────────────────────────────────────────────────
+
+  const getCatEntries = (catId) => budgetEntries[catId] || [];
+
+  const saveCatEntries = (catId, entries) => {
+    onSaveBudgetEntries({ ...budgetEntries, [catId]: entries });
   };
 
-  const saveGlobalLimit = () => {
-    const val = parseFloat(limitInput);
-    const updated = { ...globalBudgets };
-    if (isNaN(val) || val <= 0) {
-      delete updated[selectedCatId];
-    } else {
-      updated[selectedCatId] = val;
-    }
-    onSaveGlobalBudgets(updated);
+  const deleteEntry = (catId, entryId) => {
+    const updated = getCatEntries(catId).filter(e => e.id !== entryId);
+    onSaveBudgetEntries({ ...budgetEntries, [catId]: updated });
   };
 
-  const totalBudgeted = Object.values(globalBudgets).reduce((s, v) => s + (v || 0), 0);
+  const activeMonthTotal = categories
+    .filter(c => !c.isIncome)
+    .reduce((sum, c) => {
+      const val = resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth);
+      return sum + (val || 0);
+    }, 0);
 
-  // --- Income Source Logic ---
-  const saveIncomeSource = () => {
-    if (!incomeForm.label.trim()) return;
-    const amount = parseFloat(incomeForm.amount) || 0;
-    let updated;
-    if (isEditingIncome) {
-      updated = incomeSources.map(s => s.id === isEditingIncome ? { ...s, label: incomeForm.label, amount } : s);
-    } else {
-      updated = [...incomeSources, { id: `inc-${Date.now()}`, label: incomeForm.label, amount, active: true }];
-    }
-    onSaveIncomeSources(updated);
-    setIncomeForm({ label: '', amount: '' });
-    setIsEditingIncome(null);
-    setIsAddingIncome(false);
+  const getCatDisplayValue = (catId) => {
+    const entries = getCatEntries(catId);
+    if (!entries.length) return null;
+    const key = `${curYear}-${String(curMonth + 1).padStart(2, '0')}`;
+    const active = entries.find(e => e.startDate <= key && (e.endDate === null || e.endDate >= key));
+    if (active) return fmt(active.amount);
+    return `${entries.length} ${entries.length === 1 ? 'period' : 'periods'}`;
+  };
+
+  // ── Income helpers ────────────────────────────────────────────────────────
+
+  const getSourceEntries = (sourceId) => {
+    const source = incomeSources.find(s => s.id === sourceId);
+    return source?.entries || [];
+  };
+
+  const saveSourceEntries = (sourceId, entries) => {
+    onSaveIncomeSources(incomeSources.map(s => s.id === sourceId ? { ...s, entries } : s));
+  };
+
+  const deleteSourceEntry = (sourceId, entryId) => {
+    const entries = getSourceEntries(sourceId).filter(e => e.id !== entryId);
+    onSaveIncomeSources(incomeSources.map(s => s.id === sourceId ? { ...s, entries } : s));
+  };
+
+  const getSourceActiveAmount = (source) => {
+    if (!source.entries) return source.amount || 0;
+    const key = `${curYear}-${String(curMonth + 1).padStart(2, '0')}`;
+    const entry = source.entries.find(e => e.startDate <= key && (e.endDate === null || e.endDate >= key));
+    return entry ? entry.amount : null;
   };
 
   const toggleIncome = (id) => {
     onSaveIncomeSources(incomeSources.map(s => s.id === id ? { ...s, active: !s.active } : s));
   };
 
-  const removeIncome = (id) => {
-    if (window.confirm("This will remove this income from all months that haven't been manually adjusted. Are you sure?")) {
-      onSaveIncomeSources(incomeSources.filter(s => s.id !== id));
-    }
+  const addIncomeSource = () => {
+    if (!newSourceLabel.trim()) return;
+    const newSource = { id: `inc-${Date.now()}`, label: newSourceLabel.trim(), active: true, entries: [] };
+    onSaveIncomeSources([...incomeSources, newSource]);
+    setSelectedSourceId(newSource.id);
+    setNewSourceLabel('');
+    setIsAddingSource(false);
   };
 
-  const startEditIncome = (source) => {
-    setIsEditingIncome(source.id);
-    setIncomeForm({ label: source.label, amount: source.amount.toString() });
+  const removeSource = (id) => {
+    onSaveIncomeSources(incomeSources.filter(s => s.id !== id));
+    if (selectedSourceId === id) setSelectedSourceId(null);
+    setConfirmDeleteSourceId(null);
   };
 
-  const activeIncomeTotal = incomeSources.filter(s => s.active).reduce((s, src) => s + src.amount, 0);
+  const saveSourceLabel = (id) => {
+    if (!sourceLabelInput.trim()) return;
+    onSaveIncomeSources(incomeSources.map(s => s.id === id ? { ...s, label: sourceLabelInput.trim() } : s));
+    setEditingSourceId(null);
+  };
+
+  const activeIncomeTotal = incomeSources
+    .filter(s => s.active)
+    .reduce((sum, s) => sum + (getSourceActiveAmount(s) || 0), 0);
+
+  const selectedCat = categories.find(c => c.id === selectedCatId);
+  const selectedSource = incomeSources.find(s => s.id === selectedSourceId);
+
+  const sidebarStyle = {
+    background: 'var(--color-background-primary)',
+    border: '0.5px solid var(--color-border-tertiary)',
+    borderRadius: 'var(--border-radius-lg)',
+    padding: 16,
+    position: 'sticky',
+    top: 120,
+  };
+
+  const panelStyle = {
+    background: 'var(--color-background-primary)',
+    border: '0.5px solid var(--color-border-tertiary)',
+    borderRadius: 'var(--border-radius-lg)',
+    padding: 28,
+    minHeight: 300,
+  };
 
   return (
     <div>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 26, fontWeight: 500, marginBottom: 4 }}>Budgeting for {year}</h1>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Set global targets and manage your income streams.</p>
+        <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Set spending limits and manage your income streams.</p>
       </div>
 
       {/* Section Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '0.5px solid var(--color-border-tertiary)', paddingBottom: 12 }}>
-        <button className={`nav-tab ${activeTab === 'categories' ? 'active' : ''}`} onClick={() => setActiveTab('categories')}>Category Budgets</button>
-        <button className={`nav-tab ${activeTab === 'income' ? 'active' : ''}`} onClick={() => setActiveTab('income')}>Income Sources</button>
+        <button className={`nav-tab ${activeTab === 'outgoing' ? 'active' : ''}`} onClick={() => { setActiveTab('outgoing'); setSelectedCatId(null); }}>Outgoing</button>
+        <button className={`nav-tab ${activeTab === 'income' ? 'active' : ''}`} onClick={() => { setActiveTab('income'); setSelectedSourceId(null); }}>Income</button>
       </div>
 
-      {activeTab === 'categories' ? (
+      {/* ── Outgoing tab ── */}
+      {activeTab === 'outgoing' && (
         <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
-          {/* Sidebar */}
-          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)', padding: 16, position: 'sticky', top: 120 }}>
-            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 16 }}>Select Category</p>
+          <div style={sidebarStyle}>
+            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Categories</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {categories.filter(c => !c.isIncome).map(c => (
-                <button 
-                  key={c.id} 
-                  onClick={() => handleSelectCat(c)}
-                  style={{ 
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                    background: selectedCatId === c.id ? 'var(--color-background-secondary)' : 'transparent',
-                    color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-sans)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
-                    <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
-                  </div>
-                  <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>
-                    {globalBudgets[c.id] ? fmt(globalBudgets[c.id]) : 'No limit'}
-                  </span>
-                </button>
-              ))}
+              {categories.filter(c => !c.isIncome).map(c => {
+                const display = getCatDisplayValue(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedCatId(c.id)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: selectedCatId === c.id ? 'var(--color-background-secondary)' : 'transparent',
+                      color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-sans)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
+                      <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: display ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                      {display || 'No limit'}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-            <div style={{ marginTop: 20, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500 }}>
-              <span>Total budgeted:</span>
-              <span>{fmt(totalBudgeted)}</span>
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Active this month:</span>
+              <span style={{ fontWeight: 500 }}>{fmt(activeMonthTotal)}</span>
             </div>
           </div>
 
-          {/* Edit Panel */}
-          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)', padding: 32 }}>
-            {selectedCatId ? (
-              <div style={{ maxWidth: 400 }}>
+          <div style={panelStyle}>
+            {selectedCat ? (
+              <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: getcat(selectedCatId).color }} />
-                  <h2 style={{ fontSize: 20, fontWeight: 500 }}>{getcat(selectedCatId).label}</h2>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: selectedCat.color }} />
+                  <h2 style={{ fontSize: 20, fontWeight: 500 }}>{selectedCat.label}</h2>
                 </div>
-                
-                <div style={{ marginBottom: 20 }}>
-                  <label style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 8, display: 'block' }}>Monthly limit (CAD)</label>
-                  <input 
-                    className="input-f" 
-                    type="number" 
-                    value={limitInput} 
-                    onChange={e => setLimitInput(e.target.value)}
-                    placeholder="No limit" 
-                    style={{ fontSize: 16, padding: '12px' }}
-                  />
-                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>
-                    This applies to all months unless overridden in a specific month's view.
-                  </p>
+                <EntryList
+                  key={selectedCatId}
+                  entries={getCatEntries(selectedCatId)}
+                  onSave={entries => saveCatEntries(selectedCatId, entries)}
+                  onDelete={entryId => deleteEntry(selectedCatId, entryId)}
+                />
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-secondary)' }}>
+                <p>Select a category to manage its budget periods.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Income tab ── */}
+      {activeTab === 'income' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
+          <div style={sidebarStyle}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Income Sources</p>
+              {!isAddingSource && (
+                <button className="btn-g" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setIsAddingSource(true)}>+ Add</button>
+              )}
+            </div>
+
+            {isAddingSource && (
+              <div style={{ marginBottom: 12, display: 'flex', gap: 6 }}>
+                <input
+                  className="input-f"
+                  style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
+                  placeholder="Source name"
+                  value={newSourceLabel}
+                  onChange={e => setNewSourceLabel(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addIncomeSource(); if (e.key === 'Escape') { setIsAddingSource(false); setNewSourceLabel(''); } }}
+                  autoFocus
+                />
+                <button className="btn-p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={addIncomeSource}>Add</button>
+                <button className="btn-g" style={{ padding: '5px 8px', fontSize: 11 }} onClick={() => { setIsAddingSource(false); setNewSourceLabel(''); }}>✕</button>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {incomeSources.length === 0 && (
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', padding: '8px 0' }}>No income sources.</p>
+              )}
+              {incomeSources.map(s => {
+                const activeAmt = getSourceActiveAmount(s);
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setSelectedSourceId(s.id)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: selectedSourceId === s.id ? 'var(--color-background-secondary)' : 'transparent',
+                      color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13,
+                      fontFamily: 'var(--font-sans)', opacity: s.active ? 1 : 0.5,
+                    }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
+                    <span style={{ fontSize: 11, color: activeAmt != null ? 'var(--color-text-success)' : 'var(--color-text-secondary)', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                      {activeAmt != null ? fmt(activeAmt) : 'No entry'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Active this month:</span>
+              <span style={{ fontWeight: 500, color: 'var(--color-text-success)' }}>{fmt(activeIncomeTotal)}</span>
+            </div>
+          </div>
+
+          <div style={panelStyle}>
+            {selectedSource ? (
+              <div>
+                {/* Source header: label + toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                  <label className="switch">
+                    <input type="checkbox" checked={selectedSource.active} onChange={() => toggleIncome(selectedSource.id)} />
+                    <span className="slider"></span>
+                  </label>
+                  {editingSourceId === selectedSource.id ? (
+                    <div style={{ display: 'flex', gap: 8, flex: 1 }}>
+                      <input
+                        className="input-f"
+                        style={{ fontSize: 18, fontWeight: 500, padding: '4px 8px' }}
+                        value={sourceLabelInput}
+                        onChange={e => setSourceLabelInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveSourceLabel(selectedSource.id); if (e.key === 'Escape') setEditingSourceId(null); }}
+                        autoFocus
+                      />
+                      <button className="btn-p" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveSourceLabel(selectedSource.id)}>Save</button>
+                      <button className="btn-g" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setEditingSourceId(null)}>Cancel</button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <h2 style={{ fontSize: 20, fontWeight: 500 }}>{selectedSource.label}</h2>
+                      <button
+                        onClick={() => { setEditingSourceId(selectedSource.id); setSourceLabelInput(selectedSource.label); }}
+                        style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline', padding: 0 }}
+                      >
+                        Rename
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                  <button className="btn-p" style={{ padding: '10px 24px' }} onClick={saveGlobalLimit}>Save Limit</button>
-                  {globalBudgets[selectedCatId] && (
-                    <button className="btn-g" style={{ padding: '10px 24px' }} onClick={() => { setLimitInput(''); onSaveGlobalBudgets({ ...globalBudgets, [selectedCatId]: undefined }); }}>Clear Limit</button>
+                <EntryList
+                  key={selectedSourceId}
+                  entries={getSourceEntries(selectedSourceId)}
+                  onSave={entries => saveSourceEntries(selectedSourceId, entries)}
+                  onDelete={entryId => deleteSourceEntry(selectedSourceId, entryId)}
+                />
+
+                {/* Remove source */}
+                <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                  {confirmDeleteSourceId === selectedSource.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, color: 'var(--color-text-danger)' }}>Remove {selectedSource.label} and all its entries?</span>
+                      <button className="btn-g" style={{ padding: '5px 12px', fontSize: 12, color: 'var(--color-text-danger)' }} onClick={() => removeSource(selectedSource.id)}>Confirm</button>
+                      <button className="btn-g" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setConfirmDeleteSourceId(null)}>Cancel</button>
+                    </div>
+                  ) : (
+                    <button className="btn-g" style={{ fontSize: 12, padding: '6px 14px', color: 'var(--color-text-danger)' }} onClick={() => setConfirmDeleteSourceId(selectedSource.id)}>
+                      Remove source
+                    </button>
                   )}
                 </div>
               </div>
             ) : (
               <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-secondary)' }}>
-                <p>Select a category from the list to set its global monthly budget.</p>
+                <p>{incomeSources.length === 0 ? 'Add an income source to get started.' : 'Select an income source to manage its entries.'}</p>
               </div>
             )}
-          </div>
-        </div>
-      ) : (
-        <div style={{ maxWidth: 800 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 500 }}>Recurring Income Streams</h2>
-            {!isAddingIncome && <button className="btn-p" onClick={() => setIsAddingIncome(true)}>+ Add Income Source</button>}
-          </div>
-
-          {(isAddingIncome || isEditingIncome) && (
-            <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-secondary)', borderRadius: 'var(--border-radius-lg)', padding: 20, marginBottom: 20 }}>
-              <h3 style={{ fontSize: 14, fontWeight: 500, marginBottom: 16 }}>{isEditingIncome ? 'Edit Income Source' : 'New Income Source'}</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4, display: 'block' }}>Label</label>
-                  <input className="input-f" value={incomeForm.label} onChange={e => setIncomeForm({...incomeForm, label: e.target.value})} placeholder="e.g. Salary" autoFocus />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 4, display: 'block' }}>Monthly Amount</label>
-                  <input className="input-f" type="number" value={incomeForm.amount} onChange={e => setIncomeForm({...incomeForm, amount: e.target.value})} placeholder="0.00" />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn-p" onClick={saveIncomeSource}>Save Source</button>
-                <button className="btn-g" onClick={() => { setIsAddingIncome(false); setIsEditingIncome(null); setIncomeForm({ label: '', amount: '' }); }}>Cancel</button>
-              </div>
-            </div>
-          )}
-
-          <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)', overflow: 'hidden' }}>
-            {incomeSources.length === 0 ? (
-              <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>No recurring income sources configured.</div>
-            ) : (
-              incomeSources.map((source, i) => (
-                <div key={source.id} className="txn-row" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 20px', borderBottom: i < incomeSources.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none', opacity: source.active ? 1 : 0.5 }}>
-                  <label className="switch">
-                    <input type="checkbox" checked={source.active} onChange={() => toggleIncome(source.id)} />
-                    <span className="slider"></span>
-                  </label>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: 15 }}>{source.label}</div>
-                    <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{source.active ? 'Active' : 'Inactive'}</div>
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{fmt(source.amount)}/mo</div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn-g" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => startEditIncome(source)}>Edit</button>
-                    <button className="btn-g" style={{ padding: '6px 12px', fontSize: 12, color: 'var(--color-text-danger)' }} onClick={() => removeIncome(source.id)}>Remove</button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-
-          <div style={{ marginTop: 24, padding: '16px 20px', background: 'var(--color-background-secondary)', borderRadius: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontWeight: 500 }}>Combined monthly income:</span>
-            <span style={{ fontSize: 20, fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-text-success)' }}>{fmt(activeIncomeTotal)}</span>
           </div>
         </div>
       )}
     </div>
   );
-
-  function getcat(id) {
-    return categories.find(c => c.id === id) || { label: 'Unknown', color: '#888' };
-  }
 }

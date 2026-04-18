@@ -6,7 +6,7 @@ import { projectScenario } from "./utils";
 export default function ScenariosView({ 
   scenarios, 
   incomeSources, 
-  globalBudgets, 
+  budgetEntries,
   categories,
   allTxns, 
   allIncomeAdjusts, 
@@ -57,7 +57,7 @@ export default function ScenariosView({
       <ScenarioBuilder 
         existing={activeScenario}
         incomeSources={incomeSources}
-        globalBudgets={globalBudgets}
+        budgetEntries={budgetEntries}
         categories={categories}
         onSave={handleSaveScenario}
         onCancel={() => setView('list')}
@@ -69,7 +69,7 @@ export default function ScenariosView({
     const projection = projectScenario(
       activeScenario,
       incomeSources,
-      globalBudgets,
+      budgetEntries,
       allTxns,
       allIncomeAdjusts,
       allOverrides,

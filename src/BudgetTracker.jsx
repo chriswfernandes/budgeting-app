@@ -7,7 +7,7 @@ import MonthView from "./MonthView";
 import BudgetView from "./BudgetView";
 import ScenariosView from "./ScenariosView";
 import ForecastView from "./ForecastView";
-import { resolveMonthIncome, isIncomeCat } from "./utils";
+import { resolveMonthIncome, isIncomeCat, isCCPaymentCat } from "./utils";
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -24,6 +24,7 @@ const INITIAL_CATEGORIES = [
   { id: 'utilities',     label: 'Utilities',       color: '#854F0B' },
   { id: 'subscriptions', label: 'Subscriptions',   color: '#993556' },
   { id: 'transfers',     label: 'Transfers',       color: '#5F5E5A' },
+  { id: 'cc-payment',   label: 'CC Payment',      color: '#5F7A9E', isCCPayment: true },
   { id: 'other',         label: 'Other',           color: '#444441' },
 ];
 
@@ -219,6 +220,7 @@ export default function BudgetTracker() {
   const fileRef = useRef();
 
   const isIncomeCatLocal = (catId) => isIncomeCat(categories, catId);
+  const isCCPaymentCatLocal = (catId) => isCCPaymentCat(categories, catId);
 
   const getcat = (id) => categories.find(c => c.id === id) || { label: id || 'Uncategorized', color: '#888' };
 
@@ -345,8 +347,8 @@ export default function BudgetTracker() {
     const adjustments = incomeAdjusts[key] || [];
 
     const totalIncome = resolveMonthIncome(incomeSources, legacyInc, adjustments, y, m);
-    const expenses = list.filter(t => !isIncomeCatLocal(t.category) && t.type !== 'income').reduce((s,t) => s + t.amount, 0);
-    const txnIncome = list.filter(t => isIncomeCatLocal(t.category) || t.type === 'income').reduce((s,t) => s + t.amount, 0);
+    const expenses = list.filter(t => !isIncomeCatLocal(t.category) && !isCCPaymentCatLocal(t.category) && t.type !== 'income').reduce((s,t) => s + t.amount, 0);
+    const txnIncome = list.filter(t => (isIncomeCatLocal(t.category) || t.type === 'income') && !isCCPaymentCatLocal(t.category)).reduce((s,t) => s + t.amount, 0);
     const effectiveIncome = totalIncome + txnIncome;
 
     return { 

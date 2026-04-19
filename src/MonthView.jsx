@@ -97,7 +97,7 @@ export default function MonthView({
 
   // ── Derived values ────────────────────────────────────────────────────────
 
-  const parents = categories.filter(c => !c.parentId && !c.isIncome);
+  const parents = categories.filter(c => !c.parentId && !c.isIncome && !c.isCCPayment);
 
   const overBudgetCategories = categories.filter(c => {
     const spent = getRollupTotal(c.id);
@@ -145,6 +145,7 @@ export default function MonthView({
   const totalBudget = parents.reduce((s, p) => s + (getTargetValue(p.id) ?? 0), 0);
   const totalActual = parents.reduce((s, p) => s + getRollupTotal(p.id), 0);
   const uncatTotal = data.list.filter(t => !t.category && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const ccPaymentTotal = data.list.filter(t => { const cat = categories.find(c => c.id === t.category); return cat?.isCCPayment; }).reduce((s, t) => s + t.amount, 0);
 
   // ── Status dot component ──────────────────────────────────────────────────
 
@@ -452,6 +453,22 @@ export default function MonthView({
                 </td>
                 <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
                 <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{fmt(uncatTotal)}</td>
+                <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
+                <td style={{ padding: '11px 16px' }}></td>
+              </tr>
+            )}
+            {/* CC Payment neutral row */}
+            {ccPaymentTotal > 0 && (
+              <tr style={{ background: 'var(--color-background-secondary)' }}>
+                <td style={{ padding: '11px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5F7A9E', display: 'inline-block' }} />
+                    <span style={{ color: 'var(--color-text-secondary)' }}>CC Payments</span>
+                    <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>excluded from totals</span>
+                  </div>
+                </td>
+                <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
+                <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{fmt(ccPaymentTotal)}</td>
                 <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
                 <td style={{ padding: '11px 16px' }}></td>
               </tr>

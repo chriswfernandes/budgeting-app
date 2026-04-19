@@ -71,6 +71,12 @@ export default function RulesView({ rules, categories, onSaveRules }) {
         </div>
 
         <div>
+          {!rules.some(r => r.targetCategory === 'cc-payment') && (
+            <div style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--color-background-info)', border: '0.5px solid var(--color-text-info)', borderRadius: 'var(--border-radius-md)', fontSize: 12, color: 'var(--color-text-info)', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span>💳</span>
+              <span>Tip: create rules mapping <strong>"VISA PREAUTH PYMT"</strong> (checking) and <strong>"PREAUTHORIZED PAYMENT"</strong> (credit card) → <strong>CC Payment</strong> to automatically exclude credit card bill payments from your totals.</span>
+            </div>
+          )}
           <div style={{ padding: '8px 0', marginBottom: 12, position: 'sticky', top: 76, background: 'var(--color-background-tertiary)', zIndex: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}><span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{filteredRules.length} rules</span><input className="input-f" style={{ maxWidth: 240, padding: '6px 12px', fontSize: 13 }} placeholder="Search rules..." value={search} onChange={e => setSearch(e.target.value)} /></div>
           <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
             {filteredRules.map((r) => {

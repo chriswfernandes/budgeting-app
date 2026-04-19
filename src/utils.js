@@ -21,6 +21,12 @@ export function isIncomeCat(categories, catId) {
   return false;
 }
 
+export function isCCPaymentCat(categories, catId) {
+  if (!catId) return false;
+  const cat = categories.find(c => c.id === catId);
+  return !!(cat?.isCCPayment);
+}
+
 export function resolveMonthIncome(incomeSources, manualLegacy, monthAdjustments, year, month) {
   if (!incomeSources || incomeSources.length === 0) return manualLegacy;
   return incomeSources
@@ -91,10 +97,10 @@ export function buildForecast(
     const adjustments = allIncomeAdjusts[key] || [];
 
     const actualIncome = txns
-      .filter(t => t.type === 'income' || isIncomeCat(categories, t.category))
+      .filter(t => (t.type === 'income' || isIncomeCat(categories, t.category)) && !isCCPaymentCat(categories, t.category))
       .reduce((s, t) => s + t.amount, 0);
     const actualExpenses = txns
-      .filter(t => t.type === 'expense' && !isIncomeCat(categories, t.category))
+      .filter(t => t.type === 'expense' && !isIncomeCat(categories, t.category) && !isCCPaymentCat(categories, t.category))
       .reduce((s, t) => s + t.amount, 0);
 
     const plannedIncome = resolveMonthIncome(incomeSources, 0, adjustments, year, m);
@@ -172,12 +178,12 @@ export function projectScenario(
     let monthlyExpenses = 0;
     if (isActual) {
       monthlyExpenses = txns
-        .filter(t => !isIncomeCat(categories, t.category) && t.type !== 'income')
+        .filter(t => !isIncomeCat(categories, t.category) && !isCCPaymentCat(categories, t.category) && t.type !== 'income')
         .reduce((sum, t) => sum + t.amount, 0);
-      
+
       // Also add transaction income (not from sources) to projected income
       const txnIncome = txns
-        .filter(t => isIncomeCat(categories, t.category) || t.type === 'income')
+        .filter(t => (isIncomeCat(categories, t.category) || t.type === 'income') && !isCCPaymentCat(categories, t.category))
         .reduce((sum, t) => sum + t.amount, 0);
       monthlyIncome += txnIncome;
     } else {

@@ -5,7 +5,7 @@ export default function MonthView({
   year, month, data, categories, budgetEntries,
   incomeSources, monthOverrides, incomeAdjustments,
   getcat, onUpdateIncome, onUpdateTxn, onSaveOverride, onSaveIncomeAdjust,
-  onDelete, onImport, onAddManual,
+  onDelete, onClearMonth, onImport, onAddManual,
   accountBalance, lastKnownBalance,
 }) {
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -33,6 +33,9 @@ export default function MonthView({
 
   // Budget overrides section state
   const [overridesExpanded, setOverridesExpanded] = useState(false);
+
+  // Clear month state
+  const [confirmClear, setConfirmClear] = useState(false);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -523,6 +526,15 @@ export default function MonthView({
                 <button onClick={() => onImport('credit')}>Credit Card</button>
               </div>
             </div>
+            {confirmClear ? (
+              <>
+                <span style={{ fontSize: 12, color: 'var(--color-text-danger)', display: 'flex', alignItems: 'center' }}>Clear all transactions?</span>
+                <button className="btn-g" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--color-text-danger)' }} onClick={() => { onClearMonth(); setConfirmClear(false); }}>Confirm</button>
+                <button className="btn-g" style={{ fontSize: 12, padding: '5px 10px' }} onClick={() => setConfirmClear(false)}>Cancel</button>
+              </>
+            ) : (
+              data.list.length > 0 && <button className="btn-g" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--color-text-danger)' }} onClick={() => setConfirmClear(true)}>Clear data</button>
+            )}
           </div>
         </div>
 

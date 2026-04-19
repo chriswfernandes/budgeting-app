@@ -447,6 +447,7 @@ export default function BudgetTracker() {
 
   const done = () => { setQueue([]); setQIdx(0); setView(month !== null ? 'month' : 'overview'); };
   const deleteTxn = async (id) => { if (month === null) return; const k = `${year}-${month}`; await saveTxns(year, month, (txns[k] || []).filter(t => t.id !== id)); };
+  const clearMonthTxns = async () => { if (month === null) return; await saveTxns(year, month, []); };
   const addManual = async (txn) => { const m = month ?? new Date().getMonth(); const k = `${year}-${m}`; await saveTxns(year, m, [...(txns[k] || []), { ...txn, id: `m-${Date.now()}`, account: 'manual' }]); };
   const doAddYear = async () => { const y = parseInt(newYear); if (!y || years.includes(y)) return; const updated = [...years, y].sort(); setYears(updated); await store.set('budget-years', updated); setYear(y); setNewYear(''); setAddingYear(false); };
   const triggerImport = (type) => { setActiveImportAccount(type); setTimeout(() => fileRef.current?.click(), 0); };
@@ -533,6 +534,7 @@ export default function BudgetTracker() {
             onSaveOverride={(data) => saveMonthOverride(year, month, data)}
             onSaveIncomeAdjust={(data) => saveIncomeAdjust(year, month, data)}
             onDelete={deleteTxn}
+            onClearMonth={clearMonthTxns}
             onImport={triggerImport}
             onAddManual={addManual}
             accountBalance={accountBalances[`balance-${year}-${month}`] || null}

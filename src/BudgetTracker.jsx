@@ -339,6 +339,28 @@ export default function BudgetTracker() {
     await store.set(`income-adjust-${y}-${m}`, data);
   };
 
+  const reapplyRules = async () => {
+    const activeRules = rules.filter(r => r.active);
+    if (!activeRules.length) return 0;
+    const updatedTxns = { ...txns };
+    let count = 0;
+    for (const [key, list] of Object.entries(txns)) {
+      const updated = list.map(t => {
+        const match = activeRules.find(r => t.description.toLowerCase().includes(r.trigger.toLowerCase()));
+        if (!match) return t;
+        const newType = isIncomeCatLocal(match.targetCategory) ? 'income' : 'expense';
+        if (t.category === match.targetCategory && t.type === newType) return t;
+        count++;
+        return { ...t, category: match.targetCategory, type: newType };
+      });
+      updatedTxns[key] = updated;
+      const [y, m] = key.split('-').map(Number);
+      await store.set(`t-${y}-${m}`, updated);
+    }
+    setTxns(updatedTxns);
+    return count;
+  };
+
   const monthData = (y, m) => {
     const key = `${y}-${m}`;
     const list = txns[key] || [];
@@ -349,7 +371,8 @@ export default function BudgetTracker() {
     const totalIncome = resolveMonthIncome(incomeSources, legacyInc, adjustments, y, m);
     const expenses = list.filter(t => !isIncomeCatLocal(t.category) && !isCCPaymentCatLocal(t.category) && t.type !== 'income').reduce((s,t) => s + t.amount, 0);
     const txnIncome = list.filter(t => (isIncomeCatLocal(t.category) || t.type === 'income') && !isCCPaymentCatLocal(t.category)).reduce((s,t) => s + t.amount, 0);
-    const effectiveIncome = totalIncome + txnIncome;
+    // Use transaction income when available; income sources are planning-only fallback
+    const effectiveIncome = txnIncome > 0 ? txnIncome : totalIncome;
 
     return { 
       list, totalIncome: effectiveIncome, expenses, net: effectiveIncome - expenses, overrides, adjustments
@@ -503,7 +526,7 @@ export default function BudgetTracker() {
             })()}
           />
         )}
-        {view === 'rules' && <RulesView rules={rules} categories={categories} onSaveRules={saveRules} />}
+        {view === 'rules' && <RulesView rules={rules} categories={categories} onSaveRules={saveRules} onReapplyRules={reapplyRules} txnCount={Object.values(txns).reduce((s, list) => s + list.length, 0)} />}
         {view === 'categories' && <CategoriesView categories={categories} onSaveCategories={saveCategories} />}
         {view === 'budget' && <BudgetView categories={categories} budgetEntries={budgetEntries} onSaveBudgetEntries={saveBudgetEntries} incomeSources={incomeSources} onSaveIncomeSources={saveIncomeSources} year={year} />}
         {view === 'scenarios' && (

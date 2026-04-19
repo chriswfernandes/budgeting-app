@@ -1,10 +1,13 @@
 import { useState } from "react";
 
-export default function RulesView({ rules, categories, onSaveRules }) {
+export default function RulesView({ rules, categories, onSaveRules, onReapplyRules, txnCount = 0 }) {
   const [form, setForm] = useState({ trigger: '', targetCategory: categories[0]?.id || '', amountThreshold: '', type: '' });
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ trigger: '', targetCategory: '', amountThreshold: '', type: '' });
   const [search, setSearch] = useState('');
+  const [confirmReapply, setConfirmReapply] = useState(false);
+  const [reapplyResult, setReapplyResult] = useState(null);
+  const [reapplying, setReapplying] = useState(false);
 
   const saveRule = () => {
     if (!form.trigger.trim()) return;
@@ -45,6 +48,14 @@ export default function RulesView({ rules, categories, onSaveRules }) {
 
   const toggle = (id) => onSaveRules(rules.map(r => r.id === id ? { ...r, active: !r.active } : r));
   const del = (id) => onSaveRules(rules.filter(r => r.id !== id));
+
+  const runReapply = async () => {
+    setReapplying(true);
+    setConfirmReapply(false);
+    const count = await onReapplyRules();
+    setReapplyResult(count);
+    setReapplying(false);
+  };
   
   const filteredRules = rules.filter(r => 
     r.trigger.toLowerCase().includes(search.toLowerCase()) ||
@@ -78,6 +89,11 @@ export default function RulesView({ rules, categories, onSaveRules }) {
             </div>
           )}
           <div style={{ padding: '8px 0', marginBottom: 12, position: 'sticky', top: 76, background: 'var(--color-background-tertiary)', zIndex: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}><span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{filteredRules.length} rules</span><input className="input-f" style={{ maxWidth: 240, padding: '6px 12px', fontSize: 13 }} placeholder="Search rules..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+          {filteredRules.length === 0 && search === '' && (
+            <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'32px 24px', textAlign:'center', color:'var(--color-text-secondary)', fontSize:13 }}>
+              No rules yet. Create one using the panel on the left.
+            </div>
+          )}
           <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
             {filteredRules.map((r) => {
               const c = categories.find(cat => cat.id === r.targetCategory);
@@ -134,6 +150,46 @@ export default function RulesView({ rules, categories, onSaveRules }) {
                 </div>
               );
             })}
+          </div>
+
+          {/* Bulk actions */}
+          <div style={{ marginTop: 24, padding: 16, background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)' }}>
+            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Bulk actions</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              {reapplyResult !== null ? (
+                <span style={{ fontSize: 13, color: 'var(--color-text-success)' }}>
+                  ✓ {reapplyResult} transaction{reapplyResult !== 1 ? 's' : ''} reclassified
+                  <button onClick={() => setReapplyResult(null)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12, marginLeft: 8, textDecoration: 'underline', padding: 0 }}>dismiss</button>
+                </span>
+              ) : confirmReapply ? (
+                <>
+                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                    Run {rules.filter(r => r.active).length} active rules against {txnCount} stored transactions?
+                  </span>
+                  <button className="btn-p" style={{ padding: '5px 14px', fontSize: 12 }} onClick={runReapply} disabled={reapplying}>
+                    {reapplying ? 'Running…' : 'Confirm'}
+                  </button>
+                  <button className="btn-g" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setConfirmReapply(false)}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 500 }}>Re-apply rules to all imported transactions</p>
+                    <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                      Updates categories on all {txnCount} stored transactions using your current active rules.
+                    </p>
+                  </div>
+                  <button
+                    className="btn-g"
+                    style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}
+                    onClick={() => setConfirmReapply(true)}
+                    disabled={!rules.some(r => r.active) || txnCount === 0}
+                  >
+                    Re-apply rules
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>

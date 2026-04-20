@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { resolveMonthBudget, getBudgetStatus, forecastSpend, resolveMonthIncome } from "./utils";
+import { useState, useMemo } from "react";
+import { resolveMonthBudget, getBudgetStatus, forecastSpend, resolveMonthIncome, expandIncomePeriod } from "./utils";
 
 export default function MonthView({
   year, month, data, categories, budgetEntries,
@@ -14,6 +14,33 @@ export default function MonthView({
   const [incInput, setIncInput] = useState((data.totalIncome - (data.list.filter(t => t.type === 'income').reduce((s,t) => s + t.amount, 0))).toString());
   const [editInc, setEditInc] = useState(false);
   const [editIncomeOverrides, setEditIncomeOverrides] = useState(false);
+  const [incomeViewMode, setIncomeViewMode] = useState('actual'); // 'actual' | 'projected' | 'combined'
+
+  // Projected income transactions for this month from recurrence-enabled entries
+  const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+  const projectedIncomeTxns = useMemo(() => {
+    const result = [];
+    for (const source of (incomeSources || []).filter(s => s.active)) {
+      for (const entry of (source.entries || [])) {
+        if (entry.recurrence?.enabled) {
+          result.push(...expandIncomePeriod(source, entry, monthKey, monthKey));
+        }
+      }
+    }
+    return result;
+  }, [incomeSources, monthKey]);
+
+  // Fulfillment suppression: projected entry is fulfilled when an actual income
+  // transaction exists on the same date within ±$1 of the projected amount
+  const unfulfilledProjected = useMemo(() => {
+    return projectedIncomeTxns.filter(p =>
+      !data.list.some(t =>
+        t.date === p.date &&
+        (t.type === 'income' || t.category === 'income') &&
+        Math.abs(t.amount - p.amount) <= 1
+      )
+    );
+  }, [projectedIncomeTxns, data.list]);
 
   // Category table state
   const [collapsedIds, setCollapsedIds] = useState(new Set());
@@ -129,9 +156,11 @@ export default function MonthView({
   const getSourceAmount = (source) => {
     if (!source.entries) return source.amount || 0;
     const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-    const entry = source.entries.find(e =>
-      e.startDate <= key && (e.endDate === null || e.endDate >= key)
-    );
+    const entry = source.entries.find(e => {
+      const start = e.startDate.substring(0, 7);
+      const end   = e.endDate ? e.endDate.substring(0, 7) : null;
+      return start <= key && (end === null || end >= key);
+    });
     return entry ? entry.amount : 0;
   };
 
@@ -139,16 +168,32 @@ export default function MonthView({
   const actualIncome = data.totalIncome;
   const incomeOnTrack = actualIncome >= plannedIncome;
 
+  // Build the base transaction list based on income view mode
+  const baseTxnList = useMemo(() => {
+    if (incomeViewMode === 'projected') {
+      // Show projected income txns alongside non-income actual txns
+      const nonIncome = data.list.filter(t => t.type !== 'income' && t.category !== 'income');
+      return [...nonIncome, ...projectedIncomeTxns];
+    }
+    if (incomeViewMode === 'combined') {
+      return [...data.list, ...unfulfilledProjected];
+    }
+    return data.list;
+  }, [incomeViewMode, data.list, projectedIncomeTxns, unfulfilledProjected]);
+
   const filteredTxns = (filterCat
-    ? data.list.filter(t => t.category === filterCat || categories.find(c => c.id === t.category)?.parentId === filterCat)
-    : data.list
-  ).filter(t => t.description.toLowerCase().includes(search.toLowerCase()) || t.amount.toString().includes(search));
+    ? baseTxnList.filter(t => t.category === filterCat || categories.find(c => c.id === t.category)?.parentId === filterCat)
+    : baseTxnList
+  ).filter(t => {
+    const desc = t.description || t.label || '';
+    return desc.toLowerCase().includes(search.toLowerCase()) || t.amount.toString().includes(search);
+  });
 
   // Category table totals
   const totalBudget = parents.reduce((s, p) => s + (getTargetValue(p.id) ?? 0), 0);
   const totalActual = parents.reduce((s, p) => s + getRollupTotal(p.id), 0);
   const uncatTotal = data.list.filter(t => !t.category && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const ccPaymentTotal = data.list.filter(t => { const cat = categories.find(c => c.id === t.category); return cat?.isCCPayment; }).reduce((s, t) => s + t.amount, 0);
+  const ccPaymentTotal = data.list.filter(t => t.category === 'cc-payment' || categories.find(c => c.id === t.category)?.isCCPayment).reduce((s, t) => s + t.amount, 0);
 
   // ── Status dot component ──────────────────────────────────────────────────
 
@@ -275,14 +320,31 @@ export default function MonthView({
       </div>
 
       {/* ── Income plan vs actual row ── */}
-      {plannedIncome > 0 && (
-        <div style={{ ...cardStyle, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 24, fontSize: 13 }}>
+      {(plannedIncome > 0 || projectedIncomeTxns.length > 0) && (
+        <div style={{ ...cardStyle, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500, minWidth: 60 }}>Income</span>
-          <span style={{ color: 'var(--color-text-secondary)' }}>Planned: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{fmt(plannedIncome)}</span></span>
-          <span style={{ color: 'var(--color-text-secondary)' }}>Actual: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-success)' }}>{fmt(actualIncome)}</span></span>
-          <span style={{ fontSize: 12, color: incomeOnTrack ? 'var(--color-text-success)' : 'var(--color-text-danger)', fontWeight: 500 }}>
-            {incomeOnTrack ? '✓ On track' : `✗ ${fmt(plannedIncome - actualIncome)} short`}
-          </span>
+          {plannedIncome > 0 && <>
+            <span style={{ color: 'var(--color-text-secondary)' }}>Planned: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{fmt(plannedIncome)}</span></span>
+            <span style={{ color: 'var(--color-text-secondary)' }}>Actual: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-success)' }}>{fmt(actualIncome)}</span></span>
+            <span style={{ fontSize: 12, color: incomeOnTrack ? 'var(--color-text-success)' : 'var(--color-text-danger)', fontWeight: 500 }}>
+              {incomeOnTrack ? '✓ On track' : `✗ ${fmt(plannedIncome - actualIncome)} short`}
+            </span>
+          </>}
+          {projectedIncomeTxns.length > 0 && (
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+              {['actual','projected','combined'].map(mode => (
+                <button key={mode} onClick={() => setIncomeViewMode(mode)}
+                  style={{
+                    padding: '3px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: 'none',
+                    fontFamily: 'var(--font-sans)', textTransform: 'capitalize',
+                    background: incomeViewMode === mode ? 'var(--color-text-primary)' : 'var(--color-background-secondary)',
+                    color: incomeViewMode === mode ? 'var(--color-background-primary)' : 'var(--color-text-secondary)',
+                  }}>
+                  {mode}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -575,12 +637,22 @@ export default function MonthView({
               <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', padding: '8px 0' }}>No transactions{search ? ' matching search' : ''}.</p>
             ) : (
               <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-md)', overflow: 'hidden' }}>
-                {filteredTxns.map((t, i) => {
+                {[...filteredTxns].sort((a, b) => (a.date || '').localeCompare(b.date || '')).map((t, i, arr) => {
+                  const isProjected = !!t.isProjected;
                   const c = getcat(t.category);
                   const isEditingRow = editingRowId === t.id;
                   const isEditingCat = editingCatId === t.id;
+                  const rowBorder = i < arr.length - 1
+                    ? (isProjected ? '1px dashed var(--color-border-secondary)' : '0.5px solid var(--color-border-tertiary)')
+                    : 'none';
                   return (
-                    <div key={t.id} className="txn-row" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: i < filteredTxns.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
+                    <div key={t.id || `proj-${t.periodId}-${t.date}`} className={isProjected ? '' : 'txn-row'}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
+                        borderBottom: rowBorder,
+                        opacity: isProjected ? 0.72 : 1,
+                        background: isProjected ? 'var(--color-background-secondary)' : undefined,
+                      }}>
                       <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         {isEditingRow ? (
@@ -594,9 +666,11 @@ export default function MonthView({
                           </div>
                         ) : (
                           <>
-                            <p style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.description}</p>
+                            <p style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: isProjected ? 'italic' : 'normal', color: isProjected ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}>
+                              {isProjected ? t.label : t.description}
+                            </p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {isEditingCat ? (
+                              {isEditingCat && !isProjected ? (
                                 <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
                                   <select className="input-f" style={{ padding: '2px 6px', fontSize: 11, width: 'auto' }} value={t.category || ''} onChange={e => changeCatQuick(t.id, e.target.value)}>
                                     <option value="" disabled>Select...</option>
@@ -605,35 +679,41 @@ export default function MonthView({
                                   <button className="btn-g" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => setEditingCatId(null)}>✕</button>
                                 </div>
                               ) : (
-                                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', cursor: 'pointer' }} onClick={() => setEditingCatId(t.id)}>
-                                  {t.date ? t.date + ' · ' : ''}<span style={{ textDecoration: 'underline' }}>{c.label}</span>
+                                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', cursor: isProjected ? 'default' : 'pointer' }}
+                                  onClick={() => !isProjected && setEditingCatId(t.id)}>
+                                  {t.date ? t.date + ' · ' : ''}<span style={{ textDecoration: isProjected ? 'none' : 'underline' }}>{c.label}</span>
                                 </p>
                               )}
-                              {t.account && !isEditingCat && (
+                              {!isProjected && t.account && !isEditingCat && (
                                 <span style={{ fontSize: 9, background: 'var(--color-background-secondary)', padding: '1px 5px', borderRadius: 10, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>{t.account}</span>
+                              )}
+                              {isProjected && (
+                                <span style={{ fontSize: 9, background: 'var(--color-background-info)', color: 'var(--color-text-info)', padding: '1px 6px', borderRadius: 8, border: '0.5px solid var(--color-text-info)' }}>projected</span>
                               )}
                             </div>
                           </>
                         )}
                       </div>
                       {!isEditingRow && (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: t.type === 'income' ? 'var(--color-text-success)' : 'var(--color-text-primary)', flexShrink: 0 }}>
-                          {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: (isProjected || t.type === 'income') ? 'var(--color-text-success)' : 'var(--color-text-primary)', flexShrink: 0 }}>
+                          {(isProjected || t.type === 'income') ? '+' : '-'}{fmt(t.amount)}
                         </span>
                       )}
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        {isEditingRow ? (
-                          <>
-                            <button className="btn-p" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveRowEdit(t.id)}>Save</button>
-                            <button className="btn-g" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => setEditingRowId(null)}>✕</button>
-                          </>
-                        ) : (
-                          <>
-                            <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => startRowEdit(t)}>Edit</button>
-                            <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => onDelete(t.id)}>✕</button>
-                          </>
-                        )}
-                      </div>
+                      {!isProjected && (
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          {isEditingRow ? (
+                            <>
+                              <button className="btn-p" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveRowEdit(t.id)}>Save</button>
+                              <button className="btn-g" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => setEditingRowId(null)}>✕</button>
+                            </>
+                          ) : (
+                            <>
+                              <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => startRowEdit(t)}>Edit</button>
+                              <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => onDelete(t.id)}>✕</button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

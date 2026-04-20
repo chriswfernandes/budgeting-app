@@ -18,6 +18,10 @@ Stack: React with hooks, inline CSS, no external UI libraries, no router
 | 4.5 | `PRP-04.5-historical-data.md` | ✅ Done | Historical data (previous years), year discovery during CSV import | — |
 | 4.5.1 | `PRP-04.5.1-year-budgets.md` | ✅ Done | Year-specific global budgets with migration | 4.5 |
 | 4.5.2 | `PRP-04.5.2-advanced-classify.md` | ✅ Done | Advanced classification UX, conditional rules, inline categories | 4.5.1 |
+| 11 | `PRP-11-cc-payment-category.md` | ✅ Done | CC Payment system category; excluded from all expense/income totals | — |
+| 12 | `PRP-12-double-counting-fix.md` | ✅ Done | Fix income source + txn income double-count; Re-apply rules button | PRP-11 |
+| 13 | `PRP-13-cc-payment-flag-migration.md` | ✅ Done | Fix missing isCCPayment flag in stored categories; re-apply rules cross-year; CategoriesView system guard | PRP-11, PRP-12 |
+| 14 | `PRP-14-budget-tab-filtering-and-categories-cleanup.md` | ✅ Done | Fix Outgoing tab showing income categories; remove dead Target field from CategoriesView | PRP-13 |
 | 05 | `PRP-05-month-view-plan-vs-actual.md` | 🔲 Not started | Categories above the fold in MonthView; plan vs. actual columns; collapsible transaction list | PRP-02, PRP-03 |
 | 06 | `PRP-06-annual-forecast.md` | 🔲 Not started | Annual Forecast tab: planned vs. actual per month, running projected balance, SVG chart | PRP-05 |
 | 07 | `PRP-07-account-balance-tracking.md` | 🔲 Not started | Parse balance column from checking CSVs; store per month; display in Overview, Month, Forecast | PRP-06 |

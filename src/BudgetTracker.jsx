@@ -229,7 +229,21 @@ export default function BudgetTracker() {
       await migrateStorage(); 
       const sy = await store.get('budget-years') || [new Date().getFullYear()];
       const sr = await store.get('budget-rules') || [];
-      const sc = await store.get('budget-categories') || INITIAL_CATEGORIES;
+      const scRaw = await store.get('budget-categories') || INITIAL_CATEGORIES;
+      // Ensure system category flags are present, and add system categories if they're missing entirely
+      const SYSTEM_CATS = [{ id: 'cc-payment', label: 'CC Payment', color: '#5F7A9E', isCCPayment: true }];
+      let sc = scRaw.map(c => {
+        const sys = SYSTEM_CATS.find(s => s.id === c.id);
+        if (!sys) return c;
+        const needsPatch = Object.entries(sys).some(([k, v]) => c[k] !== v);
+        return needsPatch ? { ...c, ...sys } : c;
+      });
+      for (const sys of SYSTEM_CATS) {
+        if (!sc.find(c => c.id === sys.id)) sc = [...sc, sys];
+      }
+      if (sc.some((c, i) => c !== scRaw[i]) || sc.length !== scRaw.length) {
+        await store.set('budget-categories', sc);
+      }
       const be = await store.get('budget-entries') || {};
       let is = await store.get('income-sources') || [];
       // PRP-10: migrate legacy flat-amount sources to entries format
@@ -342,20 +356,25 @@ export default function BudgetTracker() {
   const reapplyRules = async () => {
     const activeRules = rules.filter(r => r.active);
     if (!activeRules.length) return 0;
-    const updatedTxns = { ...txns };
     let count = 0;
-    for (const [key, list] of Object.entries(txns)) {
-      const updated = list.map(t => {
-        const match = activeRules.find(r => t.description.toLowerCase().includes(r.trigger.toLowerCase()));
-        if (!match) return t;
-        const newType = isIncomeCatLocal(match.targetCategory) ? 'income' : 'expense';
-        if (t.category === match.targetCategory && t.type === newType) return t;
-        count++;
-        return { ...t, category: match.targetCategory, type: newType };
-      });
-      updatedTxns[key] = updated;
-      const [y, m] = key.split('-').map(Number);
-      await store.set(`t-${y}-${m}`, updated);
+    const updatedTxns = { ...txns };
+    for (const y of years) {
+      for (let m = 0; m < 12; m++) {
+        const list = await store.get(`t-${y}-${m}`);
+        if (!list || list.length === 0) continue;
+        const updated = list.map(t => {
+          const match = activeRules.find(r => t.description.toLowerCase().includes(r.trigger.toLowerCase()));
+          if (!match) return t;
+          const newType = isIncomeCatLocal(match.targetCategory) ? 'income' : 'expense';
+          if (t.category === match.targetCategory && t.type === newType) return t;
+          count++;
+          return { ...t, category: match.targetCategory, type: newType };
+        });
+        if (updated.some((t, i) => t !== list[i])) {
+          await store.set(`t-${y}-${m}`, updated);
+          if (y === year) updatedTxns[`${y}-${m}`] = updated;
+        }
+      }
     }
     setTxns(updatedTxns);
     return count;

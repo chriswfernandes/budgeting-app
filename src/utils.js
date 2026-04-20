@@ -23,8 +23,18 @@ export function isIncomeCat(categories, catId) {
 
 export function isCCPaymentCat(categories, catId) {
   if (!catId) return false;
+  if (catId === 'cc-payment') return true; // hardcoded system ID — always excluded regardless of state
   const cat = categories.find(c => c.id === catId);
   return !!(cat?.isCCPayment);
+}
+
+// Compare an entry's date range against a "YYYY-MM" key.
+// Handles both legacy "YYYY-MM" dates and full "YYYY-MM-DD" dates by
+// comparing only the first 7 characters (the month part).
+function _entryCoversMonth(entry, key) {
+  const start = entry.startDate.substring(0, 7);
+  const end   = entry.endDate ? entry.endDate.substring(0, 7) : null;
+  return start <= key && (end === null || end >= key);
 }
 
 export function resolveMonthIncome(incomeSources, manualLegacy, monthAdjustments, year, month) {
@@ -36,9 +46,7 @@ export function resolveMonthIncome(incomeSources, manualLegacy, monthAdjustments
       if (adj) return sum + adj.amount;
       if (source.entries && year !== undefined) {
         const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-        const entry = source.entries.find(e =>
-          e.startDate <= key && (e.endDate === null || e.endDate >= key)
-        );
+        const entry = source.entries.find(e => _entryCoversMonth(e, key));
         return sum + (entry ? entry.amount : 0);
       }
       return sum + (source.amount || 0);
@@ -132,6 +140,209 @@ export function buildForecast(
   return forecast;
 }
 
+// ── Recurrence engine ─────────────────────────────────────────────────────
+
+function _addDays(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+function _fmtDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// First occurrence of dayOfWeek (0=Sun…6=Sat) on or after `date`
+function _firstDowOnOrAfter(date, dow) {
+  const d = new Date(date);
+  const diff = (dow - d.getDay() + 7) % 7;
+  d.setDate(d.getDate() + diff);
+  return d;
+}
+
+function _lastWeekdayOfMonth(year, month0, weekday) {
+  const last = new Date(year, month0 + 1, 0);
+  const diff = (last.getDay() - weekday + 7) % 7;
+  last.setDate(last.getDate() - diff);
+  return last;
+}
+
+// ordinalIdx: 0=first, 1=second, 2=third, 3=fourth
+function _nthWeekdayOfMonth(year, month0, ordinalIdx, weekday) {
+  const first = new Date(year, month0, 1);
+  const diff = (weekday - first.getDay() + 7) % 7;
+  const result = new Date(year, month0, 1 + diff + ordinalIdx * 7);
+  return result.getMonth() === month0 ? result : null;
+}
+
+const _ORDINAL_IDX = { first: 0, second: 1, third: 2, fourth: 3 };
+
+// Compute the average monthly equivalent of one occurrence at amountPerOcc
+export function computeDerivedMonthlyAmount(rec, amountPerOcc) {
+  if (!rec || !rec.enabled) return amountPerOcc;
+  const interval = rec.interval || 1;
+  switch (rec.type) {
+    case 'weekly': return (amountPerOcc * 52 * (rec.daysOfWeek || [5]).length) / (interval * 12);
+    case 'daily':  return (amountPerOcc * 365) / (interval * 12);
+    case 'monthly': return amountPerOcc / interval;
+    case 'yearly':  return amountPerOcc / (interval * 12);
+    default: return amountPerOcc;
+  }
+}
+
+/**
+ * Expand an income source entry into projected transactions for a view window.
+ *
+ * If entry.recurrence is null/disabled → one lump-sum per month (legacy behaviour).
+ * If enabled → one entry per occurrence date anchored to period start.
+ *
+ * Biweekly anchor: first occurrence of the day-of-week on or after period.startDate;
+ * subsequent dates are exactly interval×7 days apart (no calendar drift).
+ * This ensures adjacent periods never duplicate or gap beyond the expected interval.
+ *
+ * @param {object} source   Income source object (needs .id, .label)
+ * @param {object} entry    Income source entry (startDate, endDate, amount, recurrence)
+ * @param {string} viewStart  "YYYY-MM"
+ * @param {string} viewEnd    "YYYY-MM"
+ * @returns {ProjectedTransaction[]}
+ */
+export function expandIncomePeriod(source, entry, viewStart, viewEnd) {
+  const rec = entry.recurrence;
+  const periodStart = entry.startDate;
+  const periodEnd = entry.endDate;
+
+  // Clamp period to view window
+  const effStart = periodStart > viewStart ? periodStart : viewStart;
+  const effEnd = periodEnd
+    ? (periodEnd < viewEnd ? periodEnd : viewEnd)
+    : viewEnd;
+
+  if (effStart > effEnd) return [];
+
+  // Parse a "YYYY-MM" or "YYYY-MM-DD" string into a local Date safely
+  const _parseDate = (s) => {
+    const p = s.split('-').map(Number);
+    return p.length >= 3 ? new Date(p[0], p[1] - 1, p[2]) : new Date(p[0], p[1] - 1, 1);
+  };
+
+  const [esY, esM] = effStart.split('-').map(Number);
+  const [eeY, eeM] = effEnd.split('-').map(Number);
+  // rangeStart: exact start date (if full date given) or first of start month
+  const rangeStart = _parseDate(effStart);
+  // rangeEnd: exact end date (if full date given) or last day of end month
+  const rangeEnd = effEnd.length >= 10 ? _parseDate(effEnd) : new Date(eeY, eeM, 0);
+
+  // No recurrence: one lump-sum per month
+  if (!rec || !rec.enabled) {
+    const results = [];
+    let y = esY, m = esM;
+    while (y < eeY || (y === eeY && m <= eeM)) {
+      results.push({
+        date: `${y}-${String(m).padStart(2, '0')}-01`,
+        amount: entry.amount,
+        label: source.label,
+        category: 'income',
+        isProjected: true,
+        isLumpSum: true,
+        periodId: entry.id,
+        sourceId: source.id,
+      });
+      m++;
+      if (m > 12) { m = 1; y++; }
+    }
+    return results;
+  }
+
+  const amountPerOcc = rec.amountPerOccurrence ?? entry.amount;
+  const interval = rec.interval || 1;
+  const [psY, psM] = periodStart.split('-').map(Number);
+  const dates = [];
+
+  if (rec.type === 'weekly') {
+    const dows = rec.daysOfWeek || [5];
+    // Anchor from the exact period start date (or first of month for legacy "YYYY-MM" entries)
+    const periodFirstDay = _parseDate(periodStart);
+
+    for (const dow of dows) {
+      // Anchor: first occurrence of this weekday on or after the period's first day.
+      // Advance in interval*7-day steps — maintains exact rhythm, no drift.
+      const anchor = _firstDowOnOrAfter(periodFirstDay, dow);
+      let cur = new Date(anchor);
+      while (cur < rangeStart) cur = _addDays(cur, interval * 7);
+      while (cur <= rangeEnd) {
+        dates.push(_fmtDate(cur));
+        cur = _addDays(cur, interval * 7);
+      }
+    }
+
+  } else if (rec.type === 'daily') {
+    if (rec.isBusinessDay) {
+      // Every business day (interval ignored)
+      let cur = new Date(rangeStart);
+      while (cur <= rangeEnd) {
+        if (cur.getDay() !== 0 && cur.getDay() !== 6) dates.push(_fmtDate(cur));
+        cur = _addDays(cur, 1);
+      }
+    } else {
+      let cur = new Date(rangeStart);
+      while (cur <= rangeEnd) {
+        dates.push(_fmtDate(cur));
+        cur = _addDays(cur, interval);
+      }
+    }
+
+  } else if (rec.type === 'monthly') {
+    // Anchor to period start month, step by interval months
+    let y = psY, m = psM;
+    while (y < eeY + 2) {
+      if (y > esY || (y === esY && m >= esM)) {
+        const month0 = m - 1;
+        let occDate = null;
+        if (rec.dayOfMonth != null) {
+          const cap = new Date(y, month0 + 1, 0).getDate();
+          occDate = new Date(y, month0, Math.min(rec.dayOfMonth, cap));
+        } else if (rec.ordinalWeekday) {
+          const { ordinal, weekday } = rec.ordinalWeekday;
+          occDate = ordinal === 'last'
+            ? _lastWeekdayOfMonth(y, month0, weekday)
+            : _nthWeekdayOfMonth(y, month0, _ORDINAL_IDX[ordinal] ?? 0, weekday);
+        } else {
+          occDate = new Date(y, month0, 1);
+        }
+        if (occDate && occDate >= rangeStart && occDate <= rangeEnd) {
+          dates.push(_fmtDate(occDate));
+        }
+        if (y > eeY || (y === eeY && m > eeM)) break;
+      }
+      m += interval;
+      while (m > 12) { m -= 12; y++; }
+    }
+
+  } else if (rec.type === 'yearly') {
+    for (let y = psY; y <= eeY; y += interval) {
+      const month0 = (rec.monthOfYear ?? 1) - 1;
+      const occDate = new Date(y, month0, rec.dayOfMonth ?? 1);
+      if (occDate >= rangeStart && occDate <= rangeEnd) dates.push(_fmtDate(occDate));
+    }
+  }
+
+  dates.sort();
+
+  return dates.map(date => ({
+    date,
+    amount: amountPerOcc,
+    label: source.label,
+    category: 'income',
+    isProjected: true,
+    isLumpSum: false,
+    periodId: entry.id,
+    sourceId: source.id,
+  }));
+}
+
 export function projectScenario(
   scenario,
   incomeSources,
@@ -161,9 +372,7 @@ export function projectScenario(
       const scenarioChange = scenario.incomeChanges.find(c => c.sourceId === s.id);
       if (scenarioChange) return { ...s, amount: scenarioChange.monthlyAmount };
       if (s.entries) {
-        const entry = s.entries.find(e =>
-          e.startDate <= baseKey && (e.endDate === null || e.endDate >= baseKey)
-        );
+        const entry = s.entries.find(e => _entryCoversMonth(e, baseKey));
         return { ...s, amount: entry ? entry.amount : 0 };
       }
       return s;

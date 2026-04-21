@@ -1,111 +1,180 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import "tailwindcss";
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+/* ─── Design tokens ─── */
+@theme {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', Consolas, 'Courier New', monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --color-bg:            #f2f2f0;
+  --color-surface:       #ffffff;
+  --color-raised:        #ebebeb;
+  --color-border-subtle: rgba(0, 0, 0, 0.06);
+  --color-border:        rgba(0, 0, 0, 0.12);
+  --color-border-strong: rgba(0, 0, 0, 0.85);
+  --color-text:          #1a1a1a;
+  --color-muted:         #666666;
+  --color-success:       #2e7d32;
+  --color-danger:        #c62828;
+  --color-info:          #1565c0;
+  --color-warning:       #EF9F27;
+  --color-success-bg:    #e8f5e9;
+  --color-danger-bg:     #ffebee;
+  --color-info-bg:       #e3f2fd;
 }
 
+/* ─── Dark mode ─── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
-}
-
-body {
-  margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+    --color-bg:            #121212;
+    --color-surface:       #1a1a1a;
+    --color-raised:        #242424;
+    --color-border-subtle: rgba(255, 255, 255, 0.06);
+    --color-border:        rgba(255, 255, 255, 0.15);
+    --color-border-strong: rgba(255, 255, 255, 0.85);
+    --color-text:          #eeeeee;
+    --color-muted:         #aaaaaa;
+    --color-success:       #81c784;
+    --color-danger:        #e57373;
+    --color-info:          #64b5f6;
+    --color-success-bg:    #1b2e1c;
+    --color-danger-bg:     #3c1e1e;
+    --color-info-bg:       #1a2e3e;
   }
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+/* ─── Base ─── */
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--color-bg); }
+  #root { width: 100%; max-width: 100%; text-align: left; }
+  select option { background: var(--color-surface); color: var(--color-text); }
+}
+
+/* ─── Utilities ─── */
+@layer utilities {
+  .border-hair   { border-width: 0.5px; }
+  .border-t-hair { border-top-width: 0.5px; }
+  .border-b-hair { border-bottom-width: 0.5px; }
+  .border-l-hair { border-left-width: 0.5px; }
+  .border-r-hair { border-right-width: 0.5px; }
+}
+
+/* ─── Components ─── */
+@layer components {
+  /* Buttons — .btn-p is the legacy alias kept during migration */
+  .btn-primary, .btn-p {
+    @apply bg-text text-surface rounded-md px-4 py-2 text-sm font-medium
+           cursor-pointer font-sans whitespace-nowrap transition-opacity
+           hover:opacity-80 border-0;
   }
-}
-p {
-  margin: 0;
-}
+  .btn-ghost, .btn-g {
+    @apply bg-transparent border-[0.5px] border-border text-text rounded-md
+           px-4 py-2 text-sm cursor-pointer font-sans whitespace-nowrap
+           hover:bg-raised;
+  }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
+  /* Input — .input-f is the legacy alias kept during migration */
+  .input-field, .input-f {
+    @apply bg-surface border-[0.5px] border-border-subtle text-text rounded-md
+           px-3 py-2 text-sm w-full outline-none font-sans
+           focus:border-border;
+  }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  /* Header year buttons */
+  .hdr-yr-btn {
+    @apply bg-transparent border-[0.5px] border-transparent rounded text-muted
+           cursor-pointer font-sans text-sm px-1.5 py-[2px] transition-all
+           hover:bg-raised hover:border-border hover:text-text
+           disabled:opacity-30 disabled:cursor-default;
+  }
+
+  /* Navigation */
+  .nav-tab {
+    @apply px-2.5 py-1 text-sm rounded-md border-[0.5px] border-transparent
+           bg-transparent text-muted cursor-pointer font-sans transition-all;
+  }
+  .nav-tab.active {
+    @apply bg-raised border-border text-text;
+  }
+  .nav-tab:hover:not(.active) {
+    @apply text-text;
+  }
+
+  /* Sidebar */
+  .sidebar-tab {
+    @apply block w-full text-left px-3 py-2 text-sm rounded-md border-[0.5px]
+           border-transparent bg-transparent text-muted cursor-pointer
+           font-sans transition-all hover:bg-raised hover:text-text;
+  }
+  .sidebar-tab.active {
+    @apply bg-raised border-border text-text font-medium;
+  }
+  .sidebar-month-item {
+    @apply block w-full text-left pl-6 pr-3 py-[5px] text-xs rounded-md
+           border-0 bg-transparent text-muted cursor-pointer font-sans
+           transition-all hover:bg-raised hover:text-text;
+  }
+  .sidebar-month-item.active {
+    @apply bg-raised text-text font-medium;
+  }
+
+  /* Cards & pills */
+  .card {
+    @apply bg-surface border-[0.5px] border-border-subtle rounded-lg;
+  }
+  .month-card {
+    @apply bg-surface border-[0.5px] border-border-subtle rounded-xl p-4
+           cursor-pointer transition-colors hover:border-border;
+  }
+  .cat-pill {
+    @apply cursor-pointer rounded-lg px-3.5 py-2.5 border-[0.5px] border-border-subtle
+           bg-surface text-sm font-sans text-left text-text flex items-center
+           gap-2 transition-all hover:border-border-strong hover:bg-raised;
+  }
+
+  /* Transaction table rows */
+  .txn-row { transition: background 0.1s; }
+  .txn-row:hover { background: var(--color-raised); }
+  .txn-row:hover .del-btn { opacity: 1; }
+  .del-btn {
+    opacity: 0; background: transparent; border: none;
+    color: var(--color-muted); cursor: pointer;
+    padding: 2px 6px; font-size: 13px; transition: opacity 0.1s;
+    font-family: var(--font-sans);
+  }
+
+  /* Toggle switch */
+  .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background-color: var(--color-border); transition: .2s; border-radius: 20px;
+  }
+  .slider:before {
+    position: absolute; content: ""; height: 14px; width: 14px;
+    left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%;
+  }
+  input:checked + .slider { background-color: var(--color-text); }
+  input:checked + .slider:before { transform: translateX(14px); }
+
+  /* Dropdown */
+  .dropdown { position: relative; display: inline-block; }
+  .dropdown-content {
+    display: none; position: absolute; right: 0;
+    background-color: var(--color-surface); min-width: 160px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 0.5px solid var(--color-border-subtle);
+    border-radius: var(--radius-md); z-index: 100; overflow: hidden;
+  }
+  .dropdown-content button {
+    @apply block w-full text-left px-4 py-2.5 text-sm border-0
+           bg-transparent text-text cursor-pointer font-sans hover:bg-raised;
+  }
+  .dropdown:hover .dropdown-content { display: block; }
+
+  /* Category bar rows */
+  .cat-bar-row { cursor: pointer; transition: opacity 0.15s; margin-bottom: 14px; }
 }

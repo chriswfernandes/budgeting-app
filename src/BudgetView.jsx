@@ -3,7 +3,6 @@ import { resolveMonthBudget, computeDerivedMonthlyAmount, isIncomeCat, isCCPayme
 
 const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
 
-// Handles both "YYYY-MM" and "YYYY-MM-DD" date strings for display
 const fmtDate = (dateStr) => {
   if (!dateStr) return '';
   const parts = dateStr.split('-').map(Number);
@@ -13,7 +12,6 @@ const fmtDate = (dateStr) => {
   return new Date(parts[0], parts[1] - 1).toLocaleDateString('en-CA', { month: 'short', year: 'numeric' });
 };
 
-// Compare only the month part (first 7 chars) so "YYYY-MM-DD" and "YYYY-MM" are both handled
 const hasOverlap = (entries, newStart, newEnd, excludeId = null) => {
   const newStartMo = newStart.substring(0, 7);
   const newEndMo   = newEnd ? newEnd.substring(0, 7) : '9999-12';
@@ -107,46 +105,36 @@ function RecurrenceSubForm({ form, setForm }) {
     if (next.length > 0) setForm({ ...form, recDows: next });
   };
 
-  const labelStyle = { fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 };
-  const rowStyle = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 10 };
-  const numInputStyle = { width: 60, padding: '5px 8px', fontSize: 12 };
-  const pillStyle = (active) => ({
-    padding: '4px 10px', fontSize: 11, borderRadius: 20, cursor: 'pointer', border: 'none',
-    background: active ? 'var(--color-text-primary)' : 'var(--color-background-secondary)',
-    color: active ? 'var(--color-background-primary)' : 'var(--color-text-secondary)',
-    fontFamily: 'var(--font-sans)',
-  });
+  const pill = (active) =>
+    `px-2.5 py-1 rounded-full text-[11px] cursor-pointer border-0 font-sans ${active ? 'bg-text text-surface' : 'bg-raised text-muted'}`;
 
   return (
-    <div style={{ marginTop: 14, padding: 14, background: 'var(--color-background-tertiary)', borderRadius: 'var(--border-radius-md)', border: '0.5px solid var(--color-border-secondary)' }}>
-      {/* Recurrence type selector */}
-      <div style={{ marginBottom: 12 }}>
-        <label style={labelStyle}>Recurrence type</label>
-        <div style={{ display: 'flex', gap: 6 }}>
+    <div className="mt-3.5 p-3.5 bg-bg rounded-md border-[0.5px] border-border">
+      <div className="mb-3">
+        <label className="text-[11px] text-muted block mb-1">Recurrence type</label>
+        <div className="flex gap-1.5">
           {['daily','weekly','monthly','yearly'].map(t => (
             <button key={t} onClick={() => setForm({ ...form, recType: t })}
-              style={{ ...pillStyle(form.recType === t), padding: '5px 12px', borderRadius: 'var(--border-radius-md)', fontSize: 12, textTransform: 'capitalize' }}>
+              className={`px-3 py-[5px] rounded-md text-xs capitalize cursor-pointer border-0 font-sans ${form.recType === t ? 'bg-text text-surface' : 'bg-raised text-muted'}`}>
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
       </div>
 
-      {/* Weekly */}
       {form.recType === 'weekly' && (
         <>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 12 }}>Repeat every</span>
-            <input className="input-f" type="number" min="1" value={form.recInterval}
-              onChange={e => setForm({ ...form, recInterval: e.target.value })}
-              style={numInputStyle} />
-            <span style={{ fontSize: 12 }}>week(s)</span>
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <span className="text-xs">Repeat every</span>
+            <input className="input-field !w-[60px] !py-[5px] !px-2 !text-xs" type="number" min="1" value={form.recInterval}
+              onChange={e => setForm({ ...form, recInterval: e.target.value })} />
+            <span className="text-xs">week(s)</span>
           </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={labelStyle}>On</label>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="mb-2.5">
+            <label className="text-[11px] text-muted block mb-1">On</label>
+            <div className="flex gap-1.5 flex-wrap">
               {[1,2,3,4,5,6,0].map(dow => (
-                <button key={dow} onClick={() => toggleDow(dow)} style={pillStyle(form.recDows.includes(dow))}>
+                <button key={dow} onClick={() => toggleDow(dow)} className={pill(form.recDows.includes(dow))}>
                   {DOW_SHORT[dow]}
                 </button>
               ))}
@@ -155,60 +143,53 @@ function RecurrenceSubForm({ form, setForm }) {
         </>
       )}
 
-      {/* Daily */}
       {form.recType === 'daily' && (
         <>
-          <div style={rowStyle}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer' }}>
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer">
               <input type="checkbox" checked={!!form.recBusinessDay}
                 onChange={e => setForm({ ...form, recBusinessDay: e.target.checked })} />
               Every business day (Mon–Fri)
             </label>
           </div>
           {!form.recBusinessDay && (
-            <div style={rowStyle}>
-              <span style={{ fontSize: 12 }}>Repeat every</span>
-              <input className="input-f" type="number" min="1" value={form.recInterval}
-                onChange={e => setForm({ ...form, recInterval: e.target.value })}
-                style={numInputStyle} />
-              <span style={{ fontSize: 12 }}>day(s)</span>
+            <div className="flex items-center gap-2 flex-wrap mb-2.5">
+              <span className="text-xs">Repeat every</span>
+              <input className="input-field !w-[60px] !py-[5px] !px-2 !text-xs" type="number" min="1" value={form.recInterval}
+                onChange={e => setForm({ ...form, recInterval: e.target.value })} />
+              <span className="text-xs">day(s)</span>
             </div>
           )}
         </>
       )}
 
-      {/* Monthly */}
       {form.recType === 'monthly' && (
         <>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 12 }}>Repeat every</span>
-            <input className="input-f" type="number" min="1" value={form.recInterval}
-              onChange={e => setForm({ ...form, recInterval: e.target.value })}
-              style={numInputStyle} />
-            <span style={{ fontSize: 12 }}>month(s)</span>
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <span className="text-xs">Repeat every</span>
+            <input className="input-field !w-[60px] !py-[5px] !px-2 !text-xs" type="number" min="1" value={form.recInterval}
+              onChange={e => setForm({ ...form, recInterval: e.target.value })} />
+            <span className="text-xs">month(s)</span>
           </div>
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', marginBottom: 6 }}>
+          <div className="mb-2">
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer mb-1.5">
               <input type="radio" checked={form.recMonthlyMode === 'day'}
                 onChange={() => setForm({ ...form, recMonthlyMode: 'day' })} />
               Day
-              <input className="input-f" type="number" min="1" max="31" value={form.recDayOfMonth}
-                onChange={e => setForm({ ...form, recDayOfMonth: e.target.value, recMonthlyMode: 'day' })}
-                style={{ ...numInputStyle, marginLeft: 4 }} />
+              <input className="input-field !w-[60px] !py-[5px] !px-2 !text-xs ml-1" type="number" min="1" max="31" value={form.recDayOfMonth}
+                onChange={e => setForm({ ...form, recDayOfMonth: e.target.value, recMonthlyMode: 'day' })} />
               of the month
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, cursor: 'pointer', flexWrap: 'wrap' }}>
+            <label className="flex items-center gap-1.5 text-xs cursor-pointer flex-wrap">
               <input type="radio" checked={form.recMonthlyMode === 'weekday'}
                 onChange={() => setForm({ ...form, recMonthlyMode: 'weekday' })} />
               The
-              <select className="input-f" value={form.recOrdinal}
-                onChange={e => setForm({ ...form, recOrdinal: e.target.value, recMonthlyMode: 'weekday' })}
-                style={{ width: 90, padding: '4px 6px', fontSize: 11 }}>
+              <select className="input-field !w-[90px] !py-1 !px-1.5 !text-[11px]" value={form.recOrdinal}
+                onChange={e => setForm({ ...form, recOrdinal: e.target.value, recMonthlyMode: 'weekday' })}>
                 {['first','second','third','fourth','last'].map(o => <option key={o} value={o}>{o}</option>)}
               </select>
-              <select className="input-f" value={form.recOrdinalDow}
-                onChange={e => setForm({ ...form, recOrdinalDow: parseInt(e.target.value), recMonthlyMode: 'weekday' })}
-                style={{ width: 90, padding: '4px 6px', fontSize: 11 }}>
+              <select className="input-field !w-[90px] !py-1 !px-1.5 !text-[11px]" value={form.recOrdinalDow}
+                onChange={e => setForm({ ...form, recOrdinalDow: parseInt(e.target.value), recMonthlyMode: 'weekday' })}>
                 {DOW_SHORT.map((d, i) => <option key={i} value={i}>{d}</option>)}
               </select>
               of the month
@@ -217,26 +198,22 @@ function RecurrenceSubForm({ form, setForm }) {
         </>
       )}
 
-      {/* Yearly */}
       {form.recType === 'yearly' && (
         <>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 12 }}>Repeat every</span>
-            <input className="input-f" type="number" min="1" value={form.recInterval}
-              onChange={e => setForm({ ...form, recInterval: e.target.value })}
-              style={numInputStyle} />
-            <span style={{ fontSize: 12 }}>year(s)</span>
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <span className="text-xs">Repeat every</span>
+            <input className="input-field !w-[60px] !py-[5px] !px-2 !text-xs" type="number" min="1" value={form.recInterval}
+              onChange={e => setForm({ ...form, recInterval: e.target.value })} />
+            <span className="text-xs">year(s)</span>
           </div>
-          <div style={rowStyle}>
-            <span style={{ fontSize: 12 }}>On</span>
-            <select className="input-f" value={form.recMonthOfYear}
-              onChange={e => setForm({ ...form, recMonthOfYear: parseInt(e.target.value) })}
-              style={{ width: 110, padding: '4px 6px', fontSize: 11 }}>
+          <div className="flex items-center gap-2 flex-wrap mb-2.5">
+            <span className="text-xs">On</span>
+            <select className="input-field !w-[110px] !py-1 !px-1.5 !text-[11px]" value={form.recMonthOfYear}
+              onChange={e => setForm({ ...form, recMonthOfYear: parseInt(e.target.value) })}>
               {MONTHS_FULL.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
-            <input className="input-f" type="number" min="1" max="31" value={form.recDayOfMonth}
-              onChange={e => setForm({ ...form, recDayOfMonth: e.target.value })}
-              style={numInputStyle} />
+            <input className="input-field !w-[60px] !py-[5px] !px-2 !text-xs" type="number" min="1" max="31" value={form.recDayOfMonth}
+              onChange={e => setForm({ ...form, recDayOfMonth: e.target.value })} />
           </div>
         </>
       )}
@@ -253,9 +230,7 @@ function EntryList({ entries, onSave, onDelete, showRecurrence = false }) {
 
   const resetForm = () => { setForm(DEFAULT_FORM); setError(''); };
   const openAdd = () => { resetForm(); setEditingId(null); setAdding(true); };
-  // Normalise a stored date to the expected input format.
-  // When showRecurrence is true we use type="date" (needs "YYYY-MM-DD").
-  // Legacy entries stored as "YYYY-MM" are promoted to the 1st of that month.
+
   const toInputDate = (dateStr) => {
     if (!dateStr) return '';
     if (showRecurrence && dateStr.length === 7) return dateStr + '-01';
@@ -321,7 +296,6 @@ function EntryList({ entries, onSave, onDelete, showRecurrence = false }) {
     cancelForm();
   };
 
-  // Derived monthly hint for recurrence
   const monthlyHint = (() => {
     if (!showRecurrence || !form.recEnabled) return null;
     const amtPerOcc = parseFloat(form.amount) || 0;
@@ -332,21 +306,20 @@ function EntryList({ entries, onSave, onDelete, showRecurrence = false }) {
   })();
 
   const summaryText = showRecurrence ? buildSummaryText(form) : '';
-
   const sorted = [...entries].sort((a, b) => a.startDate.localeCompare(b.startDate));
 
   return (
     <div onKeyDown={e => e.key === 'Escape' && (adding || editingId) && cancelForm()}>
       {sorted.length === 0 && !adding && (
-        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', marginBottom: 16 }}>No budget periods set.</p>
+        <p className="text-[13px] text-muted italic mb-4">No budget periods set.</p>
       )}
 
       {sorted.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
+        <table className="w-full border-collapse text-[13px] mb-4">
           <thead>
-            <tr style={{ background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
+            <tr className="bg-raised border-b-[0.5px] border-border-subtle">
               {['From', 'To', 'Amount', ''].map(h => (
-                <th key={h} style={{ padding: '8px 12px', fontWeight: 500, textAlign: h === 'Amount' ? 'right' : 'left', color: 'var(--color-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                <th key={h} className={`px-3 py-2 font-medium text-[11px] text-muted uppercase tracking-[0.05em] ${h === 'Amount' ? 'text-right' : 'text-left'}`}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -364,30 +337,30 @@ function EntryList({ entries, onSave, onDelete, showRecurrence = false }) {
                 return null;
               })() : null;
               return (
-                <tr key={e.id} style={{ borderBottom: i < sorted.length - 1 ? '0.5px solid var(--color-border-tertiary)' : 'none' }}>
-                  <td style={{ padding: '10px 12px' }}>{fmtDate(e.startDate)}</td>
-                  <td style={{ padding: '10px 12px', color: e.endDate ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                <tr key={e.id} className="border-b-[0.5px] border-border-subtle last:border-b-0">
+                  <td className="px-3 py-2.5">{fmtDate(e.startDate)}</td>
+                  <td className={`px-3 py-2.5 ${e.endDate ? 'text-text' : 'text-muted'}`}>
                     {e.endDate ? fmtDate(e.endDate) : 'onwards'}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500 }}>{fmt(e.amount)}/mo</span>
+                  <td className="px-3 py-2.5 text-right">
+                    <span className="font-mono font-medium">{fmt(e.amount)}/mo</span>
                     {recLabel && (
-                      <span style={{ fontSize: 10, color: 'var(--color-text-info)', marginLeft: 6, background: 'var(--color-background-info)', padding: '1px 5px', borderRadius: 8 }}>
+                      <span className="text-[10px] text-info ml-1.5 bg-info-bg px-[5px] py-[1px] rounded-lg">
                         {recLabel}
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <td className="px-3 py-2.5 text-right whitespace-nowrap">
                     {confirmDeleteId === e.id ? (
-                      <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
-                        <span style={{ fontSize: 12, color: 'var(--color-text-danger)' }}>Delete?</span>
-                        <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => { onDelete(e.id); setConfirmDeleteId(null); }}>Confirm</button>
-                        <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
+                      <span className="flex gap-1.5 justify-end items-center">
+                        <span className="text-xs text-danger">Delete?</span>
+                        <button className="btn-ghost py-[3px] px-2 text-[11px] text-danger" onClick={() => { onDelete(e.id); setConfirmDeleteId(null); }}>Confirm</button>
+                        <button className="btn-ghost py-[3px] px-2 text-[11px]" onClick={() => setConfirmDeleteId(null)}>Cancel</button>
                       </span>
                     ) : (
-                      <span style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                        <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11 }} onClick={() => openEdit(e)}>Edit</button>
-                        <button className="btn-g" style={{ padding: '3px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => setConfirmDeleteId(e.id)}>Delete</button>
+                      <span className="flex gap-1.5 justify-end">
+                        <button className="btn-ghost py-[3px] px-2 text-[11px]" onClick={() => openEdit(e)}>Edit</button>
+                        <button className="btn-ghost py-[3px] px-2 text-[11px] text-danger" onClick={() => setConfirmDeleteId(e.id)}>Delete</button>
                       </span>
                     )}
                   </td>
@@ -399,71 +372,66 @@ function EntryList({ entries, onSave, onDelete, showRecurrence = false }) {
       )}
 
       {(adding || editingId) && (
-        <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-secondary)', borderRadius: 'var(--border-radius-md)', padding: 16, marginBottom: 12 }}>
-          <p style={{ fontSize: 12, fontWeight: 500, marginBottom: 12 }}>{editingId ? 'Edit period' : 'Add period'}</p>
-
-          {/* Core fields — always visible */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div className="bg-raised border-[0.5px] border-border rounded-md p-4 mb-3">
+          <p className="text-xs font-medium mb-3">{editingId ? 'Edit period' : 'Add period'}</p>
+          <div className="grid grid-cols-3 gap-2.5 mb-2.5">
             <div>
-              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>
+              <label className="text-[11px] text-muted block mb-1">
                 {showRecurrence && form.recEnabled ? 'Amount per occurrence (CAD) *' : 'Monthly amount (CAD) *'}
               </label>
-              <input className="input-f" type="number" min="0" step="0.01" value={form.amount}
+              <input className="input-field" type="number" min="0" step="0.01" value={form.amount}
                 onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0.00" autoFocus />
               {monthlyHint && (
-                <p style={{ fontSize: 11, color: 'var(--color-text-info)', marginTop: 5 }}>{monthlyHint}</p>
+                <p className="text-[11px] text-info mt-1.5">{monthlyHint}</p>
               )}
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>
+              <label className="text-[11px] text-muted block mb-1">
                 {showRecurrence ? 'Start date *' : 'Start month *'}
               </label>
-              <input className="input-f" type={showRecurrence ? 'date' : 'month'}
+              <input className="input-field" type={showRecurrence ? 'date' : 'month'}
                 value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--color-text-secondary)', display: 'block', marginBottom: 4 }}>
+              <label className="text-[11px] text-muted block mb-1">
                 {showRecurrence ? 'End date' : 'End month'}
               </label>
-              <input className="input-f" type={showRecurrence ? 'date' : 'month'}
+              <input className="input-field" type={showRecurrence ? 'date' : 'month'}
                 value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })}
                 disabled={form.noEndDate} style={{ opacity: form.noEndDate ? 0.4 : 1 }} />
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, cursor: 'pointer' }}>
+              <label className="flex items-center gap-1.5 mt-1.5 text-xs cursor-pointer">
                 <input type="checkbox" checked={form.noEndDate} onChange={e => setForm({ ...form, noEndDate: e.target.checked, endDate: e.target.checked ? '' : form.endDate })} />
                 No end date
               </label>
             </div>
           </div>
 
-          {/* Recurrence toggle — income sources only */}
           {showRecurrence && (
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
+            <div className="mb-2.5">
+              <label className="flex items-center gap-2 text-xs cursor-pointer">
                 <input type="checkbox" checked={form.recEnabled}
                   onChange={e => setForm({ ...form, recEnabled: e.target.checked })} />
-                <span style={{ fontWeight: form.recEnabled ? 500 : 400 }}>Define recurrence pattern (optional)</span>
+                <span className={form.recEnabled ? 'font-medium' : ''}>Define recurrence pattern (optional)</span>
               </label>
-
               {form.recEnabled && <RecurrenceSubForm form={form} setForm={setForm} />}
-
               {form.recEnabled && summaryText && (
-                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', fontStyle: 'italic', marginTop: 10, padding: '8px 12px', background: 'var(--color-background-tertiary)', borderRadius: 'var(--border-radius-md)', border: '0.5px solid var(--color-border-tertiary)' }}>
+                <p className="text-xs text-muted italic mt-2.5 px-3 py-2 bg-bg rounded-md border-[0.5px] border-border-subtle">
                   {summaryText}
                 </p>
               )}
             </div>
           )}
 
-          {error && <p style={{ fontSize: 12, color: 'var(--color-text-danger)', marginBottom: 8 }}>{error}</p>}
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn-p" style={{ padding: '6px 16px', fontSize: 12 }} onClick={saveEntry}>Save</button>
-            <button className="btn-g" style={{ padding: '6px 12px', fontSize: 12 }} onClick={cancelForm}>Cancel</button>
+          {error && <p className="text-xs text-danger mb-2">{error}</p>}
+          <div className="flex gap-2">
+            <button className="btn-primary py-1.5 px-4 text-xs" onClick={saveEntry}>Save</button>
+            <button className="btn-ghost py-1.5 px-3 text-xs" onClick={cancelForm}>Cancel</button>
           </div>
         </div>
       )}
 
       {!adding && !editingId && (
-        <button className="btn-g" style={{ fontSize: 12, padding: '6px 14px' }} onClick={openAdd}>+ Add period</button>
+        <button className="btn-ghost text-xs py-1.5 px-3.5" onClick={openAdd}>+ Add period</button>
       )}
     </div>
   );
@@ -471,14 +439,8 @@ function EntryList({ entries, onSave, onDelete, showRecurrence = false }) {
 
 export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntries, incomeSources, onSaveIncomeSources, year }) {
   const [activeTab, setActiveTab] = useState('outgoing');
-
-  // Outgoing tab state
   const [selectedCatId, setSelectedCatId] = useState(null);
-
-  // Income categories tab state
   const [selectedIncomeCatId, setSelectedIncomeCatId] = useState(null);
-
-  // Sources tab state
   const [selectedSourceId, setSelectedSourceId] = useState(null);
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [newSourceLabel, setNewSourceLabel] = useState('');
@@ -490,14 +452,8 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
   const curYear = now.getFullYear();
   const curMonth = now.getMonth();
 
-  // ── Outgoing helpers ──────────────────────────────────────────────────────
-
   const getCatEntries = (catId) => budgetEntries[catId] || [];
-
-  const saveCatEntries = (catId, entries) => {
-    onSaveBudgetEntries({ ...budgetEntries, [catId]: entries });
-  };
-
+  const saveCatEntries = (catId, entries) => onSaveBudgetEntries({ ...budgetEntries, [catId]: entries });
   const deleteEntry = (catId, entryId) => {
     const updated = getCatEntries(catId).filter(e => e.id !== entryId);
     onSaveBudgetEntries({ ...budgetEntries, [catId]: updated });
@@ -505,10 +461,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
 
   const activeMonthTotal = categories
     .filter(c => !isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id))
-    .reduce((sum, c) => {
-      const val = resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth);
-      return sum + (val || 0);
-    }, 0);
+    .reduce((sum, c) => sum + (resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth) || 0), 0);
 
   const getCatDisplayValue = (catId) => {
     const entries = getCatEntries(catId);
@@ -523,28 +476,16 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
     return `${entries.length} ${entries.length === 1 ? 'period' : 'periods'}`;
   };
 
-  // ── Income category helpers ───────────────────────────────────────────────
-
   const activeIncomeCatTotal = categories
     .filter(c => isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id))
-    .reduce((sum, c) => {
-      const val = resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth);
-      return sum + (val || 0);
-    }, 0);
+    .reduce((sum, c) => sum + (resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth) || 0), 0);
 
   const selectedIncomeCat = categories.find(c => c.id === selectedIncomeCatId);
 
-  // ── Sources helpers ───────────────────────────────────────────────────────
-
-  const getSourceEntries = (sourceId) => {
-    const source = incomeSources.find(s => s.id === sourceId);
-    return source?.entries || [];
-  };
-
+  const getSourceEntries = (sourceId) => incomeSources.find(s => s.id === sourceId)?.entries || [];
   const saveSourceEntries = (sourceId, entries) => {
     onSaveIncomeSources(incomeSources.map(s => s.id === sourceId ? { ...s, entries } : s));
   };
-
   const deleteSourceEntry = (sourceId, entryId) => {
     const entries = getSourceEntries(sourceId).filter(e => e.id !== entryId);
     onSaveIncomeSources(incomeSources.map(s => s.id === sourceId ? { ...s, entries } : s));
@@ -561,9 +502,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
     return entry ? entry.amount : null;
   };
 
-  const toggleIncome = (id) => {
-    onSaveIncomeSources(incomeSources.map(s => s.id === id ? { ...s, active: !s.active } : s));
-  };
+  const toggleIncome = (id) => onSaveIncomeSources(incomeSources.map(s => s.id === id ? { ...s, active: !s.active } : s));
 
   const addIncomeSource = () => {
     if (!newSourceLabel.trim()) return;
@@ -593,80 +532,58 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
   const selectedCat = categories.find(c => c.id === selectedCatId);
   const selectedSource = incomeSources.find(s => s.id === selectedSourceId);
 
-
-  const sidebarStyle = {
-    background: 'var(--color-background-primary)',
-    border: '0.5px solid var(--color-border-tertiary)',
-    borderRadius: 'var(--border-radius-lg)',
-    padding: 16,
-    position: 'sticky',
-    top: 120,
-  };
-
-  const panelStyle = {
-    background: 'var(--color-background-primary)',
-    border: '0.5px solid var(--color-border-tertiary)',
-    borderRadius: 'var(--border-radius-lg)',
-    padding: 28,
-    minHeight: 300,
-  };
+  const catListBtn = (isSelected, onClick, children) => (
+    <button
+      onClick={onClick}
+      className={`flex justify-between items-center w-full px-3 py-2 rounded-lg border-0 cursor-pointer text-left text-[13px] font-sans text-text transition-colors ${isSelected ? 'bg-raised' : 'bg-transparent hover:bg-raised'}`}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div>
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 500, marginBottom: 4 }}>Budgeting for {year}</h1>
-        <p style={{ color: 'var(--color-text-secondary)', fontSize: 14 }}>Set spending limits and manage your income streams.</p>
+      <div className="mb-7">
+        <h1 className="text-[26px] font-medium mb-1">Budgeting for {year}</h1>
+        <p className="text-sm text-muted">Set spending limits and manage your income streams.</p>
       </div>
 
-      {/* Section Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '0.5px solid var(--color-border-tertiary)', paddingBottom: 12 }}>
+      <div className="flex gap-2 mb-5 border-b-[0.5px] border-border-subtle pb-3">
         <button className={`nav-tab ${activeTab === 'outgoing' ? 'active' : ''}`} onClick={() => { setActiveTab('outgoing'); setSelectedCatId(null); }}>Outgoing</button>
         <button className={`nav-tab ${activeTab === 'income' ? 'active' : ''}`} onClick={() => { setActiveTab('income'); setSelectedIncomeCatId(null); }}>Income</button>
         <button className={`nav-tab ${activeTab === 'sources' ? 'active' : ''}`} onClick={() => { setActiveTab('sources'); setSelectedSourceId(null); }}>Sources</button>
       </div>
 
-      {/* ── Outgoing tab ── */}
       {activeTab === 'outgoing' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
-          <div style={sidebarStyle}>
-            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Categories</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
+          <div className="card p-4 sticky top-[120px]">
+            <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-3">Categories</p>
+            <div className="flex flex-col gap-1">
               {categories.filter(c => !isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id)).map(c => {
                 const display = getCatDisplayValue(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCatId(c.id)}
-                    style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                      background: selectedCatId === c.id ? 'var(--color-background-secondary)' : 'transparent',
-                      color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-sans)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
+                return catListBtn(selectedCatId === c.id, () => setSelectedCatId(c.id), (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
                       <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
                     </div>
-                    <span style={{ fontSize: 11, color: display ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                      {display || 'No limit'}
-                    </span>
-                  </button>
-                );
+                    <span className={`text-[11px] ${display ? 'text-text' : 'text-muted'}`}>{display || 'No limit'}</span>
+                  </>
+                ));
               })}
             </div>
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: 'var(--color-text-secondary)' }}>Active this month:</span>
-              <span style={{ fontWeight: 500 }}>{fmt(activeMonthTotal)}</span>
+            <div className="mt-4 pt-3 border-t-[0.5px] border-border-subtle flex justify-between text-[13px]">
+              <span className="text-muted">Active this month:</span>
+              <span className="font-medium">{fmt(activeMonthTotal)}</span>
             </div>
           </div>
 
-          <div style={panelStyle}>
+          <div className="card p-7 min-h-[300px]">
             {selectedCat ? (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: selectedCat.color }} />
-                  <h2 style={{ fontSize: 20, fontWeight: 500 }}>{selectedCat.label}</h2>
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="w-4 h-4 rounded-full" style={{ background: selectedCat.color }} />
+                  <h2 className="text-xl font-medium">{selectedCat.label}</h2>
                 </div>
                 <EntryList
                   key={selectedCatId}
@@ -677,7 +594,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
                 />
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-secondary)' }}>
+              <div className="text-center py-10 text-muted">
                 <p>Select a category to manage its budget periods.</p>
               </div>
             )}
@@ -685,48 +602,36 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
         </div>
       )}
 
-      {/* ── Income categories tab ── */}
       {activeTab === 'income' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
-          <div style={sidebarStyle}>
-            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Income Categories</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
+          <div className="card p-4 sticky top-[120px]">
+            <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-3">Income Categories</p>
+            <div className="flex flex-col gap-1">
               {categories.filter(c => isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id)).map(c => {
                 const display = getCatDisplayValue(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedIncomeCatId(c.id)}
-                    style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                      background: selectedIncomeCatId === c.id ? 'var(--color-background-secondary)' : 'transparent',
-                      color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-sans)'
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
+                return catListBtn(selectedIncomeCatId === c.id, () => setSelectedIncomeCatId(c.id), (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
                       <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
                     </div>
-                    <span style={{ fontSize: 11, color: display ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                      {display || 'No target'}
-                    </span>
-                  </button>
-                );
+                    <span className={`text-[11px] ${display ? 'text-text' : 'text-muted'}`}>{display || 'No target'}</span>
+                  </>
+                ));
               })}
             </div>
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: 'var(--color-text-secondary)' }}>Expected this month:</span>
-              <span style={{ fontWeight: 500, color: 'var(--color-text-success)' }}>{fmt(activeIncomeCatTotal)}</span>
+            <div className="mt-4 pt-3 border-t-[0.5px] border-border-subtle flex justify-between text-[13px]">
+              <span className="text-muted">Expected this month:</span>
+              <span className="font-medium text-success">{fmt(activeIncomeCatTotal)}</span>
             </div>
           </div>
 
-          <div style={panelStyle}>
+          <div className="card p-7 min-h-[300px]">
             {selectedIncomeCat ? (
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: selectedIncomeCat.color }} />
-                  <h2 style={{ fontSize: 20, fontWeight: 500 }}>{selectedIncomeCat.label}</h2>
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="w-4 h-4 rounded-full" style={{ background: selectedIncomeCat.color }} />
+                  <h2 className="text-xl font-medium">{selectedIncomeCat.label}</h2>
                 </div>
                 <EntryList
                   key={selectedIncomeCatId}
@@ -737,7 +642,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
                 />
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-secondary)' }}>
+              <div className="text-center py-10 text-muted">
                 <p>Select an income category to set expected monthly amounts.</p>
               </div>
             )}
@@ -745,36 +650,32 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
         </div>
       )}
 
-      {/* ── Sources tab ── */}
       {activeTab === 'sources' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
-          <div style={sidebarStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Income Sources</p>
+        <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
+          <div className="card p-4 sticky top-[120px]">
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-[11px] text-muted uppercase tracking-[0.06em]">Income Sources</p>
               {!isAddingSource && (
-                <button className="btn-g" style={{ fontSize: 11, padding: '3px 8px' }} onClick={() => setIsAddingSource(true)}>+ Add</button>
+                <button className="btn-ghost text-[11px] py-[3px] px-2" onClick={() => setIsAddingSource(true)}>+ Add</button>
               )}
             </div>
-
             {isAddingSource && (
-              <div style={{ marginBottom: 12, display: 'flex', gap: 6 }}>
+              <div className="mb-3 flex gap-1.5">
                 <input
-                  className="input-f"
-                  style={{ flex: 1, padding: '5px 8px', fontSize: 12 }}
+                  className="input-field flex-1 !py-[5px] !px-2 !text-xs"
                   placeholder="Source name"
                   value={newSourceLabel}
                   onChange={e => setNewSourceLabel(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') addIncomeSource(); if (e.key === 'Escape') { setIsAddingSource(false); setNewSourceLabel(''); } }}
                   autoFocus
                 />
-                <button className="btn-p" style={{ padding: '5px 10px', fontSize: 11 }} onClick={addIncomeSource}>Add</button>
-                <button className="btn-g" style={{ padding: '5px 8px', fontSize: 11 }} onClick={() => { setIsAddingSource(false); setNewSourceLabel(''); }}>✕</button>
+                <button className="btn-primary py-[5px] px-2.5 text-[11px]" onClick={addIncomeSource}>Add</button>
+                <button className="btn-ghost py-[5px] px-2 text-[11px]" onClick={() => { setIsAddingSource(false); setNewSourceLabel(''); }}>✕</button>
               </div>
             )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div className="flex flex-col gap-1">
               {incomeSources.length === 0 && (
-                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', padding: '8px 0' }}>No income sources.</p>
+                <p className="text-[13px] text-muted italic py-2">No income sources.</p>
               )}
               {incomeSources.map(s => {
                 const activeAmt = getSourceActiveAmount(s);
@@ -782,57 +683,48 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
                   <button
                     key={s.id}
                     onClick={() => setSelectedSourceId(s.id)}
-                    style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                      background: selectedSourceId === s.id ? 'var(--color-background-secondary)' : 'transparent',
-                      color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13,
-                      fontFamily: 'var(--font-sans)', opacity: s.active ? 1 : 0.5,
-                    }}
+                    className={`flex justify-between items-center w-full px-3 py-2 rounded-lg border-0 cursor-pointer text-left text-[13px] font-sans text-text transition-colors ${selectedSourceId === s.id ? 'bg-raised' : 'bg-transparent hover:bg-raised'} ${s.active ? '' : 'opacity-50'}`}
                   >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.label}</span>
-                    <span style={{ fontSize: 11, color: activeAmt != null ? 'var(--color-text-success)' : 'var(--color-text-secondary)', whiteSpace: 'nowrap', marginLeft: 8 }}>
+                    <span className="truncate">{s.label}</span>
+                    <span className={`text-[11px] whitespace-nowrap ml-2 ${activeAmt != null ? 'text-success' : 'text-muted'}`}>
                       {activeAmt != null ? fmt(activeAmt) : 'No entry'}
                     </span>
                   </button>
                 );
               })}
             </div>
-
-            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-              <span style={{ color: 'var(--color-text-secondary)' }}>Active this month:</span>
-              <span style={{ fontWeight: 500, color: 'var(--color-text-success)' }}>{fmt(activeIncomeTotal)}</span>
+            <div className="mt-4 pt-3 border-t-[0.5px] border-border-subtle flex justify-between text-[13px]">
+              <span className="text-muted">Active this month:</span>
+              <span className="font-medium text-success">{fmt(activeIncomeTotal)}</span>
             </div>
           </div>
 
-          <div style={panelStyle}>
+          <div className="card p-7 min-h-[300px]">
             {selectedSource ? (
               <div>
-                {/* Source header: label + toggle */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                <div className="flex items-center gap-4 mb-6">
                   <label className="switch">
                     <input type="checkbox" checked={selectedSource.active} onChange={() => toggleIncome(selectedSource.id)} />
                     <span className="slider"></span>
                   </label>
                   {editingSourceId === selectedSource.id ? (
-                    <div style={{ display: 'flex', gap: 8, flex: 1 }}>
+                    <div className="flex gap-2 flex-1">
                       <input
-                        className="input-f"
-                        style={{ fontSize: 18, fontWeight: 500, padding: '4px 8px' }}
+                        className="input-field !text-lg !font-medium !py-1 !px-2"
                         value={sourceLabelInput}
                         onChange={e => setSourceLabelInput(e.target.value)}
                         onKeyDown={e => { if (e.key === 'Enter') saveSourceLabel(selectedSource.id); if (e.key === 'Escape') setEditingSourceId(null); }}
                         autoFocus
                       />
-                      <button className="btn-p" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveSourceLabel(selectedSource.id)}>Save</button>
-                      <button className="btn-g" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setEditingSourceId(null)}>Cancel</button>
+                      <button className="btn-primary py-1 px-3 text-xs" onClick={() => saveSourceLabel(selectedSource.id)}>Save</button>
+                      <button className="btn-ghost py-1 px-2.5 text-xs" onClick={() => setEditingSourceId(null)}>Cancel</button>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <h2 style={{ fontSize: 20, fontWeight: 500 }}>{selectedSource.label}</h2>
+                    <div className="flex items-center gap-2.5">
+                      <h2 className="text-xl font-medium">{selectedSource.label}</h2>
                       <button
                         onClick={() => { setEditingSourceId(selectedSource.id); setSourceLabelInput(selectedSource.label); }}
-                        style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline', padding: 0 }}
+                        className="bg-transparent border-0 text-muted cursor-pointer text-xs underline p-0"
                       >
                         Rename
                       </button>
@@ -848,23 +740,22 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
                   showRecurrence={true}
                 />
 
-                {/* Remove source */}
-                <div style={{ marginTop: 32, paddingTop: 16, borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                <div className="mt-8 pt-4 border-t-[0.5px] border-border-subtle">
                   {confirmDeleteSourceId === selectedSource.id ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 13, color: 'var(--color-text-danger)' }}>Remove {selectedSource.label} and all its entries?</span>
-                      <button className="btn-g" style={{ padding: '5px 12px', fontSize: 12, color: 'var(--color-text-danger)' }} onClick={() => removeSource(selectedSource.id)}>Confirm</button>
-                      <button className="btn-g" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setConfirmDeleteSourceId(null)}>Cancel</button>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-[13px] text-danger">Remove {selectedSource.label} and all its entries?</span>
+                      <button className="btn-ghost py-[5px] px-3 text-xs text-danger" onClick={() => removeSource(selectedSource.id)}>Confirm</button>
+                      <button className="btn-ghost py-[5px] px-2.5 text-xs" onClick={() => setConfirmDeleteSourceId(null)}>Cancel</button>
                     </div>
                   ) : (
-                    <button className="btn-g" style={{ fontSize: 12, padding: '6px 14px', color: 'var(--color-text-danger)' }} onClick={() => setConfirmDeleteSourceId(selectedSource.id)}>
+                    <button className="btn-ghost text-xs py-1.5 px-3.5 text-danger" onClick={() => setConfirmDeleteSourceId(selectedSource.id)}>
                       Remove source
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-secondary)' }}>
+              <div className="text-center py-10 text-muted">
                 <p>{incomeSources.length === 0 ? 'Add an income source to get started.' : 'Select an income source to manage its entries.'}</p>
               </div>
             )}

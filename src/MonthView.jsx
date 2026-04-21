@@ -10,13 +10,11 @@ export default function MonthView({
 }) {
   const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-  // Income tile state
   const [incInput, setIncInput] = useState((data.totalIncome - (data.list.filter(t => t.type === 'income').reduce((s,t) => s + t.amount, 0))).toString());
   const [editInc, setEditInc] = useState(false);
   const [editIncomeOverrides, setEditIncomeOverrides] = useState(false);
-  const [txnViewMode, setTxnViewMode] = useState('actual'); // 'actual' | 'projected' | 'combined'
+  const [txnViewMode, setTxnViewMode] = useState('actual');
 
-  // Projected income transactions for this month from recurrence-enabled entries
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
   const projectedIncomeTxns = useMemo(() => {
     const result = [];
@@ -30,8 +28,6 @@ export default function MonthView({
     return result;
   }, [incomeSources, monthKey]);
 
-  // Fulfillment suppression: projected entry is fulfilled when an actual income
-  // transaction exists on the same date within ±$1 of the projected amount
   const unfulfilledProjected = useMemo(() => {
     return projectedIncomeTxns.filter(p =>
       !data.list.some(t =>
@@ -42,7 +38,6 @@ export default function MonthView({
     );
   }, [projectedIncomeTxns, data.list]);
 
-  // Projected transactions from budget category entries with recurrence (income + expense)
   const projectedCatTxns = useMemo(() => {
     const result = [];
     for (const [catId, entries] of Object.entries(budgetEntries)) {
@@ -71,13 +66,11 @@ export default function MonthView({
     );
   }, [projectedCatTxns, data.list]);
 
-  // Category table state
   const [collapsedIds, setCollapsedIds] = useState(new Set());
   const [editingTargetId, setEditingTargetId] = useState(null);
   const [targetInput, setTargetInput] = useState('');
   const [filterCat, setFilterCat] = useState(null);
 
-  // Transactions section state
   const hasUncategorised = data.list.some(t => !t.category);
   const [txnsExpanded, setTxnsExpanded] = useState(hasUncategorised);
   const [showAdd, setShowAdd] = useState(false);
@@ -87,13 +80,8 @@ export default function MonthView({
   const [editingCatId, setEditingCatId] = useState(null);
   const [form, setForm] = useState({ date:'', description:'', amount:'', category: categories[0]?.id || '' });
 
-  // Budget overrides section state
   const [overridesExpanded, setOverridesExpanded] = useState(false);
-
-  // Clear month state
   const [confirmClear, setConfirmClear] = useState(false);
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
 
   const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
 
@@ -161,8 +149,6 @@ export default function MonthView({
     setEditingCatId(null);
   };
 
-  // ── Derived values ────────────────────────────────────────────────────────
-
   const parents = categories.filter(c => !c.parentId && !c.isIncome && !c.isCCPayment);
   const incomeParents = categories.filter(c => !c.parentId && c.isIncome && !c.isCCPayment);
 
@@ -204,17 +190,11 @@ export default function MonthView({
   const plannedIncome = resolveMonthIncome(incomeSources, 0, incomeAdjustments, year, month);
   const actualIncome = data.totalIncome;
   const incomeOnTrack = actualIncome >= plannedIncome;
-
   const hasAnyProjected = projectedIncomeTxns.length > 0 || projectedCatTxns.length > 0;
 
-  // Build the base transaction list based on view mode
   const baseTxnList = useMemo(() => {
-    if (txnViewMode === 'projected') {
-      return [...projectedIncomeTxns, ...projectedCatTxns];
-    }
-    if (txnViewMode === 'combined') {
-      return [...data.list, ...unfulfilledProjected, ...unfulfilledCatProjected];
-    }
+    if (txnViewMode === 'projected') return [...projectedIncomeTxns, ...projectedCatTxns];
+    if (txnViewMode === 'combined') return [...data.list, ...unfulfilledProjected, ...unfulfilledCatProjected];
     return data.list;
   }, [txnViewMode, data.list, projectedIncomeTxns, projectedCatTxns, unfulfilledProjected, unfulfilledCatProjected]);
 
@@ -226,42 +206,29 @@ export default function MonthView({
     return desc.toLowerCase().includes(search.toLowerCase()) || t.amount.toString().includes(search);
   });
 
-  // Category table totals
   const totalBudget = parents.reduce((s, p) => s + (getTargetValue(p.id) ?? 0), 0);
   const totalActual = parents.reduce((s, p) => s + getRollupTotal(p.id), 0);
   const uncatTotal = data.list.filter(t => !t.category && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const ccPaymentTotal = data.list.filter(t => t.category === 'cc-payment' || categories.find(c => c.id === t.category)?.isCCPayment).reduce((s, t) => s + t.amount, 0);
 
-  // ── Status dot component ──────────────────────────────────────────────────
-
   const StatusDot = ({ status }) => {
-    const dotColor = status === 'over' ? 'var(--color-text-danger)'
-      : status === 'warning' ? '#EF9F27'
-      : status === 'under' ? 'var(--color-text-success)'
-      : 'var(--color-border-secondary)';
-    return <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, display: 'inline-block', flexShrink: 0 }} />;
+    const dotColor = status === 'over' ? 'var(--color-danger)'
+      : status === 'warning' ? 'var(--color-warning)'
+      : status === 'under' ? 'var(--color-success)'
+      : 'var(--color-border)';
+    return <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: dotColor }} />;
   };
 
-  // ── Shared styles ─────────────────────────────────────────────────────────
-
-  const cardStyle = { background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)' };
-  const sectionHeaderStyle = {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '12px 16px', cursor: 'pointer', userSelect: 'none',
-  };
-
-  // ── Render ────────────────────────────────────────────────────────────────
+  const dash = <span className="opacity-30">—</span>;
 
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 26, fontWeight: 500, marginBottom: 4 }}>{MONTHS[month]} {year}</h1>
+      <div className="mb-7">
+        <h1 className="text-[26px] font-medium mb-1">{MONTHS[month]} {year}</h1>
       </div>
 
-      {/* Forecast warning banner */}
       {forecastWarnings.length > 0 && (
-        <div style={{ background: 'var(--color-background-danger)', border: '0.5px solid var(--color-text-danger)', borderRadius: 'var(--border-radius-md)', padding: '12px 16px', marginBottom: 16, fontSize: 13, color: 'var(--color-text-danger)' }}>
+        <div className="bg-danger-bg border-[0.5px] border-danger rounded-md px-4 py-3 mb-4 text-[13px] text-danger">
           <strong>Spend Forecast:</strong> At your current pace, you're on track to overspend in:{' '}
           {forecastWarnings.map((w, i) => (
             <span key={w.category.id}>
@@ -271,32 +238,30 @@ export default function MonthView({
         </div>
       )}
 
-      {/* KPI tiles */}
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${overBudgetCategories.length > 0 ? 4 : 3}, 1fr)`, gap: 12, marginBottom: 28 }}>
-        {/* Income tile */}
-        <div style={{ ...cardStyle, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
-            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Income</p>
+      <div className={`grid ${overBudgetCategories.length > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-3 mb-7`}>
+        <div className="card px-5 py-4">
+          <div className="flex justify-between mb-2.5">
+            <p className="text-[11px] text-muted uppercase tracking-[0.06em]">Income</p>
             {incomeSources.length > 0 ? (
-              <button onClick={() => setEditIncomeOverrides(!editIncomeOverrides)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12 }}>
+              <button onClick={() => setEditIncomeOverrides(!editIncomeOverrides)} className="bg-transparent border-0 text-muted cursor-pointer text-xs">
                 {editIncomeOverrides ? 'Close' : 'Edit overrides ▾'}
               </button>
             ) : (
-              <button onClick={() => setEditInc(!editInc)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12 }}>{editInc ? 'X' : 'Edit'}</button>
+              <button onClick={() => setEditInc(!editInc)} className="bg-transparent border-0 text-muted cursor-pointer text-xs">{editInc ? 'X' : 'Edit'}</button>
             )}
           </div>
           {incomeSources.length > 0 ? (
             editIncomeOverrides ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="flex flex-col gap-2">
                 {incomeSources.map(s => {
                   const adj = incomeAdjustments.find(a => a.sourceId === s.id);
                   return (
-                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 12, fontWeight: 500 }}>{s.label}</p>
-                        <p style={{ fontSize: 10, color: 'var(--color-text-secondary)' }}>Planned: {fmt(getSourceAmount(s))}</p>
+                    <div key={s.id} className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <p className="text-xs font-medium">{s.label}</p>
+                        <p className="text-[10px] text-muted">Planned: {fmt(getSourceAmount(s))}</p>
                       </div>
-                      <input className="input-f" style={{ width: 80, padding: '4px 8px', fontSize: 12 }} placeholder={getSourceAmount(s).toString()} value={adj ? adj.amount.toString() : ''}
+                      <input className="input-field !w-[80px] !py-1 !px-2 !text-xs" placeholder={getSourceAmount(s).toString()} value={adj ? adj.amount.toString() : ''}
                         onChange={e => {
                           const valStr = e.target.value;
                           const otherAdjs = incomeAdjustments.filter(a => a.sourceId !== s.id);
@@ -309,12 +274,12 @@ export default function MonthView({
               </div>
             ) : (
               <>
-                <p style={{ fontSize: 26, fontWeight: 500, fontFamily: 'var(--font-mono)', color: 'var(--color-text-success)' }}>{fmt(data.totalIncome)}</p>
-                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '0.5px solid var(--color-border-tertiary)' }}>
+                <p className="text-[26px] font-medium font-mono text-success">{fmt(data.totalIncome)}</p>
+                <div className="mt-2 pt-2 border-t-[0.5px] border-border-subtle">
                   {incomeSources.filter(s => s.active).map(s => {
                     const adj = incomeAdjustments.find(a => a.sourceId === s.id);
                     return (
-                      <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--color-text-secondary)', marginBottom: 2 }}>
+                      <div key={s.id} className="flex justify-between text-[11px] text-muted mb-0.5">
                         <span>{s.label}</span>
                         <span>{fmt(adj ? adj.amount : getSourceAmount(s))}</span>
                       </div>
@@ -325,58 +290,49 @@ export default function MonthView({
             )
           ) : (
             editInc
-              ? <div style={{ display: 'flex', gap: 6 }}><input className="input-f" value={incInput} onChange={e => setIncInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveInc()} autoFocus /><button className="btn-p" style={{ padding: '6px 10px' }} onClick={saveInc}>Save</button></div>
-              : <p style={{ fontSize: 26, fontWeight: 500, fontFamily: 'var(--font-mono)', color: 'var(--color-text-success)' }}>{fmt(data.totalIncome)}</p>
+              ? <div className="flex gap-1.5"><input className="input-field" value={incInput} onChange={e => setIncInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveInc()} autoFocus /><button className="btn-primary py-1.5 px-2.5" onClick={saveInc}>Save</button></div>
+              : <p className="text-[26px] font-medium font-mono text-success">{fmt(data.totalIncome)}</p>
           )}
         </div>
 
-        {/* Expenses tile */}
-        <div style={{ ...cardStyle, padding: '16px 20px' }}>
-          <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Expenses</p>
-          <p style={{ fontSize: 26, fontWeight: 500, fontFamily: 'var(--font-mono)', color: 'var(--color-text-danger)' }}>-{fmt(data.expenses)}</p>
+        <div className="card px-5 py-4">
+          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-2.5">Expenses</p>
+          <p className="text-[26px] font-medium font-mono text-danger">-{fmt(data.expenses)}</p>
         </div>
 
-        {/* Net tile */}
-        <div style={{ ...cardStyle, padding: '16px 20px' }}>
-          <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Net</p>
-          <p style={{ fontSize: 26, fontWeight: 500, fontFamily: 'var(--font-mono)', color: data.net >= 0 ? 'var(--color-text-success)' : 'var(--color-text-danger)' }}>
+        <div className="card px-5 py-4">
+          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-2.5">Net</p>
+          <p className={`text-[26px] font-medium font-mono ${data.net >= 0 ? 'text-success' : 'text-danger'}`}>
             {data.net >= 0 ? '+' : '-'}{fmt(data.net)}
           </p>
         </div>
 
-        {/* Over-budget tile */}
         {overBudgetCategories.length > 0 && (
-          <div style={{ background: 'var(--color-background-danger)', border: '0.5px solid var(--color-text-danger)', borderRadius: 'var(--border-radius-lg)', padding: '16px 20px' }}>
-            <p style={{ fontSize: 11, color: 'var(--color-text-danger)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Over budget</p>
-            <p style={{ fontSize: 26, fontWeight: 500, color: 'var(--color-text-danger)' }}>{overBudgetCategories.length} {overBudgetCategories.length === 1 ? 'category' : 'categories'}</p>
-            <p style={{ fontSize: 12, color: 'var(--color-text-danger)', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="bg-danger-bg border-[0.5px] border-danger rounded-lg px-5 py-4">
+            <p className="text-[11px] text-danger uppercase tracking-[0.06em] mb-2.5">Over budget</p>
+            <p className="text-[26px] font-medium text-danger">{overBudgetCategories.length} {overBudgetCategories.length === 1 ? 'category' : 'categories'}</p>
+            <p className="text-xs text-danger mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
               {overBudgetCategories.map(c => c.label).join(', ')}
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Income plan vs actual row ── */}
       {(plannedIncome > 0 || projectedIncomeTxns.length > 0) && (
-        <div style={{ ...cardStyle, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, fontSize: 13, flexWrap: 'wrap' }}>
-          <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500, minWidth: 60 }}>Income</span>
+        <div className="card px-4 py-2.5 mb-4 flex items-center gap-4 text-[13px] flex-wrap">
+          <span className="text-muted font-medium min-w-[60px]">Income</span>
           {plannedIncome > 0 && <>
-            <span style={{ color: 'var(--color-text-secondary)' }}>Planned: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-primary)' }}>{fmt(plannedIncome)}</span></span>
-            <span style={{ color: 'var(--color-text-secondary)' }}>Actual: <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-success)' }}>{fmt(actualIncome)}</span></span>
-            <span style={{ fontSize: 12, color: incomeOnTrack ? 'var(--color-text-success)' : 'var(--color-text-danger)', fontWeight: 500 }}>
+            <span className="text-muted">Planned: <span className="font-mono text-text">{fmt(plannedIncome)}</span></span>
+            <span className="text-muted">Actual: <span className="font-mono text-success">{fmt(actualIncome)}</span></span>
+            <span className={`text-xs font-medium ${incomeOnTrack ? 'text-success' : 'text-danger'}`}>
               {incomeOnTrack ? '✓ On track' : `✗ ${fmt(plannedIncome - actualIncome)} short`}
             </span>
           </>}
           {hasAnyProjected && (
-            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+            <div className="ml-auto flex gap-1">
               {['actual','projected','combined'].map(mode => (
                 <button key={mode} onClick={() => setTxnViewMode(mode)}
-                  style={{
-                    padding: '3px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: 'none',
-                    fontFamily: 'var(--font-sans)', textTransform: 'capitalize',
-                    background: txnViewMode === mode ? 'var(--color-text-primary)' : 'var(--color-background-secondary)',
-                    color: txnViewMode === mode ? 'var(--color-background-primary)' : 'var(--color-text-secondary)',
-                  }}>
+                  className={`px-2.5 py-[3px] text-[11px] rounded-md cursor-pointer border-0 font-sans capitalize ${txnViewMode === mode ? 'bg-text text-surface' : 'bg-raised text-muted'}`}>
                   {mode}
                 </button>
               ))}
@@ -385,37 +341,31 @@ export default function MonthView({
         </div>
       )}
 
-      {/* ── Account balance row ── */}
       {(accountBalance || lastKnownBalance) && (() => {
         const rec = accountBalance || lastKnownBalance;
         const isThisMonth = !!accountBalance;
-        const fmtDate = s => { const d = new Date(s); return isNaN(d) ? s : d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }); };
+        const fmtD = s => { const d = new Date(s); return isNaN(d) ? s : d.toLocaleDateString('en-CA', { month: 'short', day: 'numeric' }); };
         return (
-          <div style={{ ...cardStyle, padding: '10px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, fontSize: 13 }}>
-            <span style={{ color: 'var(--color-text-secondary)', fontWeight: 500 }}>
+          <div className="card px-4 py-2.5 mb-4 flex items-center gap-4 text-[13px]">
+            <span className={`font-medium ${isThisMonth ? 'text-text' : 'text-muted'}`}>
               {isThisMonth ? 'Account balance' : 'Last recorded balance'}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 500, color: isThisMonth ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-              {fmt(rec.balance)}
-            </span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-              from CSV · {fmtDate(rec.date)}
+            <span className={`font-mono font-medium ${isThisMonth ? 'text-text' : 'text-muted'}`}>{fmt(rec.balance)}</span>
+            <span className="text-xs text-muted">
+              from CSV · {fmtD(rec.date)}
               {!isThisMonth && ` · ${MONTHS[new Date(rec.date).getMonth()]}`}
             </span>
           </div>
         );
       })()}
 
-      {/* ── Category Budget Summary Table ── */}
-      <div style={{ ...cardStyle, marginBottom: 16, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+      <div className="card mb-4 overflow-hidden">
+        <table className="w-full border-collapse text-[13px]">
           <thead>
-            <tr style={{ background: 'var(--color-background-secondary)', borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-              <th style={{ padding: '10px 16px', fontWeight: 500, textAlign: 'left', color: 'var(--color-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
-              <th style={{ padding: '10px 16px', fontWeight: 500, textAlign: 'right', color: 'var(--color-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Budget</th>
-              <th style={{ padding: '10px 16px', fontWeight: 500, textAlign: 'right', color: 'var(--color-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actual</th>
-              <th style={{ padding: '10px 16px', fontWeight: 500, textAlign: 'right', color: 'var(--color-text-secondary)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remaining</th>
-              <th style={{ padding: '10px 16px', width: 32 }}></th>
+            <tr className="bg-raised border-b-[0.5px] border-border-subtle">
+              {['Category','Budget','Actual','Remaining',''].map((h, i) => (
+                <th key={i} className={`px-4 py-2.5 font-medium text-[11px] text-muted uppercase tracking-[0.05em] ${h === 'Category' || h === '' ? 'text-left' : 'text-right'}`}>{h}</th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -431,59 +381,50 @@ export default function MonthView({
               if (!hasData) return null;
 
               return [
-                // Parent row
                 <tr
                   key={p.id}
                   onClick={() => setFilterCat(filterCat === p.id ? null : p.id)}
-                  style={{
-                    borderBottom: '0.5px solid var(--color-border-tertiary)',
-                    cursor: 'pointer',
-                    background: isFiltered ? 'var(--color-background-secondary)' : 'transparent',
-                    borderLeft: isFiltered ? '2px solid var(--color-border-primary)' : '2px solid transparent',
-                  }}
+                  className={`border-b-[0.5px] border-border-subtle cursor-pointer border-l-2 ${isFiltered ? 'bg-raised border-l-border' : 'border-l-transparent'}`}
                 >
-                  <td style={{ padding: '11px 16px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
                       {children.length > 0 && (
-                        <button onClick={e => toggleCollapse(e, p.id)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', padding: 0, fontSize: 9, width: 14, flexShrink: 0 }}>
+                        <button onClick={e => toggleCollapse(e, p.id)} className="bg-transparent border-0 text-muted cursor-pointer p-0 text-[9px] w-3.5 shrink-0">
                           {isCollapsed ? '▶' : '▼'}
                         </button>
                       )}
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                      <span style={{ fontWeight: 500 }}>{p.label}</span>
+                      <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: p.color }} />
+                      <span className="font-medium">{p.label}</span>
                       {monthOverrides[p.id] !== undefined && (
-                        <span style={{ fontSize: 10, color: '#EF9F27', marginLeft: 4 }}>override</span>
+                        <span className="text-[10px] text-warning ml-1">override</span>
                       )}
                     </div>
                   </td>
-                  <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                  <td className="px-4 py-3 text-right font-mono text-muted">
                     {editingTargetId === p.id ? (
-                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                        <input className="input-f" style={{ padding: '2px 6px', fontSize: 12, width: 80, textAlign: 'right' }} value={targetInput} onChange={e => setTargetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTargetOverride(); if (e.key === 'Escape') setEditingTargetId(null); }} autoFocus />
-                        <button className="btn-p" style={{ padding: '2px 8px', fontSize: 11 }} onClick={e => { e.stopPropagation(); saveTargetOverride(); }}>Set</button>
+                      <div className="flex gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                        <input className="input-field !py-[2px] !px-1.5 !text-xs !w-[80px] text-right" value={targetInput} onChange={e => setTargetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTargetOverride(); if (e.key === 'Escape') setEditingTargetId(null); }} autoFocus />
+                        <button className="btn-primary py-[2px] px-2 text-[11px]" onClick={e => { e.stopPropagation(); saveTargetOverride(); }}>Set</button>
                       </div>
                     ) : (
-                      <span onClick={e => startEditTarget(e, p.id)} style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }} title="Click to set budget">
-                        {target != null ? fmt(target) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      <span onClick={e => startEditTarget(e, p.id)} className="cursor-pointer underline decoration-dotted underline-offset-[3px]" title="Click to set budget">
+                        {target != null ? fmt(target) : dash}
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: total > 0 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                    {total > 0 ? fmt(total) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                  <td className={`px-4 py-3 text-right font-mono ${total > 0 ? 'text-text' : 'text-muted'}`}>
+                    {total > 0 ? fmt(total) : dash}
                   </td>
-                  <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                  <td className="px-4 py-3 text-right font-mono text-xs">
                     {diff != null ? (
-                      <span style={{ color: diff < 0 ? 'var(--color-text-danger)' : diff === 0 ? 'var(--color-text-secondary)' : 'var(--color-text-success)', fontWeight: diff < 0 ? 500 : 400 }}>
+                      <span className={`${diff < 0 ? 'text-danger font-medium' : diff === 0 ? 'text-muted' : 'text-success'}`}>
                         {diff < 0 ? `${fmt(diff)} over` : diff === 0 ? 'At limit' : `${fmt(diff)} left`}
                       </span>
-                    ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                    ) : dash}
                   </td>
-                  <td style={{ padding: '11px 16px', textAlign: 'center' }}>
-                    <StatusDot status={status} />
-                  </td>
+                  <td className="px-4 py-3 text-center"><StatusDot status={status} /></td>
                 </tr>,
 
-                // Child rows
                 ...(!isCollapsed ? children.map(c => {
                   const cTotal = getRollupTotal(c.id);
                   const cTarget = getTargetValue(c.id);
@@ -494,97 +435,85 @@ export default function MonthView({
                     <tr
                       key={c.id}
                       onClick={() => setFilterCat(filterCat === c.id ? null : c.id)}
-                      style={{
-                        borderBottom: '0.5px solid var(--color-border-tertiary)',
-                        cursor: 'pointer',
-                        background: filterCat === c.id ? 'var(--color-background-secondary)' : 'var(--color-background-secondary)',
-                        opacity: filterCat && filterCat !== c.id && filterCat !== p.id ? 0.5 : 1,
-                      }}
+                      className={`border-b-[0.5px] border-border-subtle cursor-pointer bg-raised ${filterCat && filterCat !== c.id && filterCat !== p.id ? 'opacity-50' : ''}`}
                     >
-                      <td style={{ padding: '8px 16px 8px 38px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
-                          <span style={{ color: 'var(--color-text-secondary)', fontSize: 12 }}>{c.label}</span>
+                      <td className="px-4 py-2 pl-[38px]">
+                        <div className="flex items-center gap-2">
+                          <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: c.color }} />
+                          <span className="text-muted text-xs">{c.label}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                      <td className="px-4 py-2 text-right font-mono text-xs text-muted">
                         {editingTargetId === c.id ? (
-                          <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }} onClick={e => e.stopPropagation()}>
-                            <input className="input-f" style={{ padding: '2px 6px', fontSize: 11, width: 70, textAlign: 'right' }} value={targetInput} onChange={e => setTargetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTargetOverride(); if (e.key === 'Escape') setEditingTargetId(null); }} autoFocus />
-                            <button className="btn-p" style={{ padding: '2px 6px', fontSize: 10 }} onClick={e => { e.stopPropagation(); saveTargetOverride(); }}>Set</button>
+                          <div className="flex gap-1 justify-end" onClick={e => e.stopPropagation()}>
+                            <input className="input-field !py-[2px] !px-1.5 !text-[11px] !w-[70px] text-right" value={targetInput} onChange={e => setTargetInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveTargetOverride(); if (e.key === 'Escape') setEditingTargetId(null); }} autoFocus />
+                            <button className="btn-primary py-[2px] px-1.5 text-[10px]" onClick={e => { e.stopPropagation(); saveTargetOverride(); }}>Set</button>
                           </div>
                         ) : (
-                          <span onClick={e => startEditTarget(e, c.id)} style={{ cursor: 'pointer', textDecoration: 'underline dotted', textUnderlineOffset: 3 }}>
-                            {cTarget != null ? fmt(cTarget) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                          <span onClick={e => startEditTarget(e, c.id)} className="cursor-pointer underline decoration-dotted underline-offset-[3px]">
+                            {cTarget != null ? fmt(cTarget) : dash}
                           </span>
                         )}
                       </td>
-                      <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: cTotal > 0 ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
-                        {cTotal > 0 ? fmt(cTotal) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      <td className={`px-4 py-2 text-right font-mono text-xs ${cTotal > 0 ? 'text-text' : 'text-muted'}`}>
+                        {cTotal > 0 ? fmt(cTotal) : dash}
                       </td>
-                      <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                      <td className="px-4 py-2 text-right font-mono text-xs">
                         {cDiff != null ? (
-                          <span style={{ color: cDiff < 0 ? 'var(--color-text-danger)' : 'var(--color-text-success)' }}>
+                          <span className={cDiff < 0 ? 'text-danger' : 'text-success'}>
                             {cDiff < 0 ? `${fmt(cDiff)} over` : `${fmt(cDiff)} left`}
                           </span>
-                        ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        ) : dash}
                       </td>
-                      <td style={{ padding: '8px 16px', textAlign: 'center' }}>
-                        <StatusDot status={cStatus} />
-                      </td>
+                      <td className="px-4 py-2 text-center"><StatusDot status={cStatus} /></td>
                     </tr>
                   );
                 }).filter(Boolean) : [])
               ];
             })}
 
-            {/* Uncategorised row */}
             {uncatTotal > 0 && (
-              <tr style={{ borderBottom: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)' }}>
-                <td style={{ padding: '11px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#888', display: 'inline-block' }} />
-                    <span style={{ color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>Uncategorised</span>
-                    <button
-                      onClick={() => { /* navigate to classify — parent handles this via setView */ }}
-                      style={{ background: 'none', border: 'none', color: 'var(--color-text-info)', cursor: 'pointer', fontSize: 11, textDecoration: 'underline', padding: 0 }}
-                    >
+              <tr className="border-b-[0.5px] border-border-subtle bg-raised">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full inline-block bg-muted" />
+                    <span className="text-muted italic">Uncategorised</span>
+                    <button onClick={() => {}} className="bg-transparent border-0 text-info cursor-pointer text-[11px] underline p-0">
                       Classify →
                     </button>
                   </div>
                 </td>
-                <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
-                <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{fmt(uncatTotal)}</td>
-                <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
-                <td style={{ padding: '11px 16px' }}></td>
-              </tr>
-            )}
-            {/* CC Payment neutral row */}
-            {ccPaymentTotal > 0 && (
-              <tr style={{ background: 'var(--color-background-secondary)' }}>
-                <td style={{ padding: '11px 16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#5F7A9E', display: 'inline-block' }} />
-                    <span style={{ color: 'var(--color-text-secondary)' }}>CC Payments</span>
-                    <span style={{ fontSize: 11, color: 'var(--color-text-secondary)', fontStyle: 'italic' }}>excluded from totals</span>
-                  </div>
-                </td>
-                <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
-                <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>{fmt(ccPaymentTotal)}</td>
-                <td style={{ padding: '11px 16px', textAlign: 'right', color: 'var(--color-border-secondary)' }}>—</td>
-                <td style={{ padding: '11px 16px' }}></td>
+                <td className="px-4 py-3 text-right text-muted opacity-30">—</td>
+                <td className="px-4 py-3 text-right font-mono text-muted">{fmt(uncatTotal)}</td>
+                <td className="px-4 py-3 text-right text-muted opacity-30">—</td>
+                <td className="px-4 py-3"></td>
               </tr>
             )}
 
-            {/* Income categories section */}
+            {ccPaymentTotal > 0 && (
+              <tr className="bg-raised">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full inline-block" style={{ background: '#5F7A9E' }} />
+                    <span className="text-muted">CC Payments</span>
+                    <span className="text-[11px] text-muted italic">excluded from totals</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-right text-muted opacity-30">—</td>
+                <td className="px-4 py-3 text-right font-mono text-muted">{fmt(ccPaymentTotal)}</td>
+                <td className="px-4 py-3 text-right text-muted opacity-30">—</td>
+                <td className="px-4 py-3"></td>
+              </tr>
+            )}
+
             {incomeParents.some(p => {
               const children = categories.filter(c => c.parentId === p.id);
               return getIncomeCatActual(p.id) > 0 || getTargetValue(p.id) != null ||
                 children.some(c => getIncomeCatActual(c.id) > 0 || getTargetValue(c.id) != null);
             }) && (
               <>
-                <tr style={{ background: 'var(--color-background-tertiary)', borderTop: '0.5px solid var(--color-border-secondary)' }}>
-                  <td colSpan={5} style={{ padding: '6px 16px', fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500 }}>
+                <tr className="bg-bg border-t-[0.5px] border-border">
+                  <td colSpan={5} className="px-4 py-1.5 text-[11px] text-muted uppercase tracking-[0.06em] font-medium">
                     Income
                   </td>
                 </tr>
@@ -596,37 +525,35 @@ export default function MonthView({
                   if (pActual === 0 && pTarget == null && !childrenHaveData) return [];
 
                   const pDiff = pTarget != null ? pActual - pTarget : null;
-                  const pStatusColor = pTarget == null ? 'var(--color-border-secondary)'
-                    : pActual >= pTarget ? 'var(--color-text-success)'
-                    : 'var(--color-text-danger)';
+                  const pStatusColor = pTarget == null ? 'var(--color-border)'
+                    : pActual >= pTarget ? 'var(--color-success)'
+                    : 'var(--color-danger)';
                   const isFiltered = filterCat === p.id;
 
                   const parentRow = (
                     <tr key={p.id} onClick={() => setFilterCat(filterCat === p.id ? null : p.id)}
-                      style={{ borderBottom: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer',
-                        background: isFiltered ? 'var(--color-background-secondary)' : 'transparent',
-                        borderLeft: isFiltered ? '2px solid var(--color-border-primary)' : '2px solid transparent' }}>
-                      <td style={{ padding: '11px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
-                          <span style={{ fontWeight: 500 }}>{p.label}</span>
+                      className={`border-b-[0.5px] border-border-subtle cursor-pointer border-l-2 ${isFiltered ? 'bg-raised border-l-border' : 'border-l-transparent'}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full inline-block shrink-0" style={{ background: p.color }} />
+                          <span className="font-medium">{p.label}</span>
                         </div>
                       </td>
-                      <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
-                        {pTarget != null ? fmt(pTarget) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      <td className="px-4 py-3 text-right font-mono text-muted">
+                        {pTarget != null ? fmt(pTarget) : dash}
                       </td>
-                      <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: pActual > 0 ? 'var(--color-text-success)' : 'var(--color-text-secondary)' }}>
-                        {pActual > 0 ? fmt(pActual) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      <td className={`px-4 py-3 text-right font-mono ${pActual > 0 ? 'text-success' : 'text-muted'}`}>
+                        {pActual > 0 ? fmt(pActual) : dash}
                       </td>
-                      <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                      <td className="px-4 py-3 text-right font-mono text-xs">
                         {pDiff != null ? (
-                          <span style={{ color: pDiff >= 0 ? 'var(--color-text-success)' : 'var(--color-text-danger)', fontWeight: pDiff < 0 ? 500 : 400 }}>
+                          <span className={`${pDiff >= 0 ? 'text-success' : 'text-danger font-medium'}`}>
                             {pDiff >= 0 ? `+${fmt(pDiff)}` : `${fmt(pDiff)} short`}
                           </span>
-                        ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        ) : dash}
                       </td>
-                      <td style={{ padding: '11px 16px', textAlign: 'center' }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: pStatusColor, display: 'inline-block' }} />
+                      <td className="px-4 py-3 text-center">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: pStatusColor }} />
                       </td>
                     </tr>
                   );
@@ -636,35 +563,33 @@ export default function MonthView({
                     const cTarget = getTargetValue(c.id);
                     if (cActual === 0 && cTarget == null) return null;
                     const cDiff = cTarget != null ? cActual - cTarget : null;
-                    const cStatusColor = cTarget == null ? 'var(--color-border-secondary)'
-                      : cActual >= cTarget ? 'var(--color-text-success)'
-                      : 'var(--color-text-danger)';
+                    const cStatusColor = cTarget == null ? 'var(--color-border)'
+                      : cActual >= cTarget ? 'var(--color-success)'
+                      : 'var(--color-danger)';
                     return (
                       <tr key={c.id} onClick={() => setFilterCat(filterCat === c.id ? null : c.id)}
-                        style={{ borderBottom: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer',
-                          background: 'var(--color-background-secondary)',
-                          opacity: filterCat && filterCat !== c.id && filterCat !== p.id ? 0.5 : 1 }}>
-                        <td style={{ padding: '8px 16px 8px 38px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
-                            <span style={{ color: 'var(--color-text-secondary)', fontSize: 12 }}>{c.label}</span>
+                        className={`border-b-[0.5px] border-border-subtle cursor-pointer bg-raised ${filterCat && filterCat !== c.id && filterCat !== p.id ? 'opacity-50' : ''}`}>
+                        <td className="px-4 py-2 pl-[38px]">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: c.color }} />
+                            <span className="text-muted text-xs">{c.label}</span>
                           </div>
                         </td>
-                        <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                          {cTarget != null ? fmt(cTarget) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        <td className="px-4 py-2 text-right font-mono text-xs text-muted">
+                          {cTarget != null ? fmt(cTarget) : dash}
                         </td>
-                        <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: cActual > 0 ? 'var(--color-text-success)' : 'var(--color-text-secondary)' }}>
-                          {cActual > 0 ? fmt(cActual) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        <td className={`px-4 py-2 text-right font-mono text-xs ${cActual > 0 ? 'text-success' : 'text-muted'}`}>
+                          {cActual > 0 ? fmt(cActual) : dash}
                         </td>
-                        <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                        <td className="px-4 py-2 text-right font-mono text-xs">
                           {cDiff != null ? (
-                            <span style={{ color: cDiff >= 0 ? 'var(--color-text-success)' : 'var(--color-text-danger)' }}>
+                            <span className={cDiff >= 0 ? 'text-success' : 'text-danger'}>
                               {cDiff >= 0 ? `+${fmt(cDiff)}` : `${fmt(cDiff)} short`}
                             </span>
-                          ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                          ) : dash}
                         </td>
-                        <td style={{ padding: '8px 16px', textAlign: 'center' }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: cStatusColor, display: 'inline-block' }} />
+                        <td className="px-4 py-2 text-center">
+                          <span className="w-2 h-2 rounded-full inline-block" style={{ background: cStatusColor }} />
                         </td>
                       </tr>
                     );
@@ -676,22 +601,21 @@ export default function MonthView({
             )}
           </tbody>
 
-          {/* Total row */}
           <tfoot>
-            <tr style={{ borderTop: '0.5px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)' }}>
-              <td style={{ padding: '11px 16px', fontWeight: 500, fontSize: 13 }}>Total</td>
-              <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
-                {totalBudget > 0 ? fmt(totalBudget) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+            <tr className="border-t-[0.5px] border-border bg-raised">
+              <td className="px-4 py-3 font-medium text-[13px]">Total</td>
+              <td className="px-4 py-3 text-right font-mono font-medium">
+                {totalBudget > 0 ? fmt(totalBudget) : dash}
               </td>
-              <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 500, color: 'var(--color-text-danger)' }}>
+              <td className="px-4 py-3 text-right font-mono font-medium text-danger">
                 {fmt(totalActual + uncatTotal)}
               </td>
-              <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 500 }}>
+              <td className="px-4 py-3 text-right font-mono font-medium">
                 {totalBudget > 0 ? (
-                  <span style={{ color: totalBudget - totalActual < 0 ? 'var(--color-text-danger)' : 'var(--color-text-success)' }}>
+                  <span className={totalBudget - totalActual < 0 ? 'text-danger' : 'text-success'}>
                     {totalBudget - totalActual < 0 ? `${fmt(totalBudget - totalActual)} over` : `${fmt(totalBudget - totalActual)} left`}
                   </span>
-                ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                ) : dash}
               </td>
               <td></td>
             </tr>
@@ -699,26 +623,25 @@ export default function MonthView({
         </table>
       </div>
 
-      {/* ── Transactions section (collapsible) ── */}
-      <div style={{ ...cardStyle, marginBottom: 16 }}>
+      <div className="card mb-4">
         <div
           onClick={() => setTxnsExpanded(!txnsExpanded)}
-          style={{ ...sectionHeaderStyle, borderBottom: txnsExpanded ? '0.5px solid var(--color-border-tertiary)' : 'none' }}
+          className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none ${txnsExpanded ? 'border-b-[0.5px] border-border-subtle' : ''}`}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', transition: 'transform 0.15s', display: 'inline-block', transform: txnsExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▾</span>
-            <span style={{ fontSize: 14, fontWeight: 500 }}>Transactions</span>
-            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>({data.list.length})</span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[13px] text-muted inline-block transition-transform duration-150" style={{ transform: txnsExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▾</span>
+            <span className="text-sm font-medium">Transactions</span>
+            <span className="text-xs text-muted">({data.list.length})</span>
             {hasUncategorised && (
-              <span style={{ fontSize: 11, background: 'var(--color-background-danger)', color: 'var(--color-text-danger)', padding: '2px 8px', borderRadius: 10, border: '0.5px solid var(--color-text-danger)' }}>
+              <span className="text-[11px] bg-danger-bg text-danger px-2 py-[2px] rounded-[10px] border-[0.5px] border-danger">
                 {data.list.filter(t => !t.category).length} unclassified
               </span>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8 }} onClick={e => e.stopPropagation()}>
-            <button className="btn-g" style={{ fontSize: 12, padding: '5px 12px' }} onClick={() => { setShowAdd(!showAdd); setTxnsExpanded(true); }}>+ Add</button>
+          <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+            <button className="btn-ghost text-xs py-[5px] px-3" onClick={() => { setShowAdd(!showAdd); setTxnsExpanded(true); }}>+ Add</button>
             <div className="dropdown">
-              <button className="btn-g" style={{ fontSize: 12, padding: '5px 12px' }}>Import CSV</button>
+              <button className="btn-ghost text-xs py-[5px] px-3">Import CSV</button>
               <div className="dropdown-content">
                 <button onClick={() => onImport('checking')}>Checking Account</button>
                 <button onClick={() => onImport('credit')}>Credit Card</button>
@@ -726,126 +649,118 @@ export default function MonthView({
             </div>
             {confirmClear ? (
               <>
-                <span style={{ fontSize: 12, color: 'var(--color-text-danger)', display: 'flex', alignItems: 'center' }}>Clear all transactions?</span>
-                <button className="btn-g" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--color-text-danger)' }} onClick={() => { onClearMonth(); setConfirmClear(false); }}>Confirm</button>
-                <button className="btn-g" style={{ fontSize: 12, padding: '5px 10px' }} onClick={() => setConfirmClear(false)}>Cancel</button>
+                <span className="text-xs text-danger flex items-center">Clear all transactions?</span>
+                <button className="btn-ghost text-xs py-[5px] px-3 text-danger" onClick={() => { onClearMonth(); setConfirmClear(false); }}>Confirm</button>
+                <button className="btn-ghost text-xs py-[5px] px-2.5" onClick={() => setConfirmClear(false)}>Cancel</button>
               </>
             ) : (
-              data.list.length > 0 && <button className="btn-g" style={{ fontSize: 12, padding: '5px 12px', color: 'var(--color-text-danger)' }} onClick={() => setConfirmClear(true)}>Clear data</button>
+              data.list.length > 0 && <button className="btn-ghost text-xs py-[5px] px-3 text-danger" onClick={() => setConfirmClear(true)}>Clear data</button>
             )}
           </div>
         </div>
 
         {txnsExpanded && (
-          <div style={{ padding: '12px 16px' }}>
-            {/* Add transaction form */}
+          <div className="px-4 py-3">
             {showAdd && (
-              <div style={{ background: 'var(--color-background-secondary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-md)', padding: 12, marginBottom: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr 120px', gap: 8, marginBottom: 8 }}>
-                  <input className="input-f" placeholder="Date (YYYY-MM-DD)" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
-                  <input className="input-f" placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
-                  <input className="input-f" placeholder="Amount" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
+              <div className="bg-raised border-[0.5px] border-border-subtle rounded-md p-3 mb-3">
+                <div className="grid gap-2 mb-2" style={{ gridTemplateColumns: '140px 1fr 120px' }}>
+                  <input className="input-field" placeholder="Date (YYYY-MM-DD)" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} />
+                  <input className="input-field" placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+                  <input className="input-field" placeholder="Amount" type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <select className="input-f" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={{ flex: 1 }}>
+                <div className="flex gap-2">
+                  <select className="input-field flex-1" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.parentId ? '↳ ' + c.label : c.label}</option>)}
                   </select>
-                  <button className="btn-p" onClick={addTxn}>Add</button>
-                  <button className="btn-g" onClick={() => setShowAdd(false)}>Cancel</button>
+                  <button className="btn-primary" onClick={addTxn}>Add</button>
+                  <button className="btn-ghost" onClick={() => setShowAdd(false)}>Cancel</button>
                 </div>
               </div>
             )}
 
-            {/* Search + filter bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <input className="input-f" style={{ flex: 1, padding: '6px 12px', fontSize: 13 }} placeholder="Search transactions..." value={search} onChange={e => setSearch(e.target.value)} />
+            <div className="flex items-center gap-3 mb-3">
+              <input className="input-field flex-1 !py-1.5 !text-[13px]" placeholder="Search transactions..." value={search} onChange={e => setSearch(e.target.value)} />
               {filterCat && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                <div className="flex items-center gap-1.5 text-xs text-muted">
                   <span>Filtered: {getcat(filterCat).label}</span>
-                  <button onClick={() => setFilterCat(null)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12, textDecoration: 'underline', padding: 0 }}>clear</button>
+                  <button onClick={() => setFilterCat(null)} className="bg-transparent border-0 text-muted cursor-pointer text-xs underline p-0">clear</button>
                 </div>
               )}
-              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>{filteredTxns.length} txns</span>
+              <span className="text-xs text-muted whitespace-nowrap">{filteredTxns.length} txns</span>
             </div>
 
-            {/* Transaction list */}
             {filteredTxns.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', fontStyle: 'italic', padding: '8px 0' }}>No transactions{search ? ' matching search' : ''}.</p>
+              <p className="text-[13px] text-muted italic py-2">No transactions{search ? ' matching search' : ''}.</p>
             ) : (
-              <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-md)', overflow: 'hidden' }}>
+              <div className="card overflow-hidden">
                 {[...filteredTxns].sort((a, b) => (a.date || '').localeCompare(b.date || '')).map((t, i, arr) => {
                   const isProjected = !!t.isProjected;
                   const c = getcat(t.category);
                   const isEditingRow = editingRowId === t.id;
                   const isEditingCat = editingCatId === t.id;
-                  const rowBorder = i < arr.length - 1
-                    ? (isProjected ? '1px dashed var(--color-border-secondary)' : '0.5px solid var(--color-border-tertiary)')
-                    : 'none';
                   return (
-                    <div key={t.id || `proj-${t.periodId}-${t.date}`} className={isProjected ? '' : 'txn-row'}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px',
-                        borderBottom: rowBorder,
-                        opacity: isProjected ? 0.72 : 1,
-                        background: isProjected ? 'var(--color-background-secondary)' : undefined,
-                      }}>
-                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      key={t.id || `proj-${t.periodId}-${t.date}`}
+                      className={`flex items-center gap-3 px-4 py-3 ${isProjected ? 'bg-raised opacity-[0.72]' : 'txn-row'}`}
+                      style={{ borderBottom: i < arr.length - 1 ? (isProjected ? '1px dashed var(--color-border)' : '0.5px solid var(--color-border-subtle)') : 'none' }}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: c.color }} />
+                      <div className="flex-1 min-w-0">
                         {isEditingRow ? (
-                          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 100px 1fr', gap: 8, alignItems: 'center' }}>
-                            <input className="input-f" style={{ fontSize: 12, padding: '3px 6px' }} value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} />
-                            <input className="input-f" style={{ fontSize: 12, padding: '3px 6px' }} value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
-                            <input className="input-f" style={{ fontSize: 12, padding: '3px 6px' }} type="number" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} />
-                            <select className="input-f" style={{ fontSize: 12, padding: '3px 6px' }} value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
+                          <div className="grid gap-2 items-center" style={{ gridTemplateColumns: '100px 1fr 100px 1fr' }}>
+                            <input className="input-field !text-xs !py-[3px] !px-1.5" value={editForm.date} onChange={e => setEditForm({ ...editForm, date: e.target.value })} />
+                            <input className="input-field !text-xs !py-[3px] !px-1.5" value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} />
+                            <input className="input-field !text-xs !py-[3px] !px-1.5" type="number" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} />
+                            <select className="input-field !text-xs !py-[3px] !px-1.5" value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })}>
                               {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.parentId ? '↳ ' + cat.label : cat.label}</option>)}
                             </select>
                           </div>
                         ) : (
                           <>
-                            <p style={{ fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontStyle: isProjected ? 'italic' : 'normal', color: isProjected ? 'var(--color-text-secondary)' : 'var(--color-text-primary)' }}>
+                            <p className={`text-sm overflow-hidden text-ellipsis whitespace-nowrap ${isProjected ? 'italic text-muted' : 'text-text'}`}>
                               {isProjected ? t.label : t.description}
                             </p>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div className="flex items-center gap-1.5">
                               {isEditingCat && !isProjected ? (
-                                <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-                                  <select className="input-f" style={{ padding: '2px 6px', fontSize: 11, width: 'auto' }} value={t.category || ''} onChange={e => changeCatQuick(t.id, e.target.value)}>
+                                <div className="flex gap-1 mt-1">
+                                  <select className="input-field !py-[2px] !px-1.5 !text-[11px] !w-auto" value={t.category || ''} onChange={e => changeCatQuick(t.id, e.target.value)}>
                                     <option value="" disabled>Select...</option>
                                     {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.parentId ? '↳ ' + cat.label : cat.label}</option>)}
                                   </select>
-                                  <button className="btn-g" style={{ padding: '2px 6px', fontSize: 11 }} onClick={() => setEditingCatId(null)}>✕</button>
+                                  <button className="btn-ghost py-[2px] px-1.5 text-[11px]" onClick={() => setEditingCatId(null)}>✕</button>
                                 </div>
                               ) : (
-                                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', cursor: isProjected ? 'default' : 'pointer' }}
+                                <p className={`text-xs text-muted ${isProjected ? 'cursor-default' : 'cursor-pointer'}`}
                                   onClick={() => !isProjected && setEditingCatId(t.id)}>
-                                  {t.date ? t.date + ' · ' : ''}<span style={{ textDecoration: isProjected ? 'none' : 'underline' }}>{c.label}</span>
+                                  {t.date ? t.date + ' · ' : ''}<span className={isProjected ? '' : 'underline'}>{c.label}</span>
                                 </p>
                               )}
                               {!isProjected && t.account && !isEditingCat && (
-                                <span style={{ fontSize: 9, background: 'var(--color-background-secondary)', padding: '1px 5px', borderRadius: 10, color: 'var(--color-text-secondary)', textTransform: 'uppercase' }}>{t.account}</span>
+                                <span className="text-[9px] bg-raised px-[5px] py-[1px] rounded-[10px] text-muted uppercase">{t.account}</span>
                               )}
                               {isProjected && (
-                                <span style={{ fontSize: 9, background: 'var(--color-background-info)', color: 'var(--color-text-info)', padding: '1px 6px', borderRadius: 8, border: '0.5px solid var(--color-text-info)' }}>projected</span>
+                                <span className="text-[9px] bg-info-bg text-info px-1.5 py-[1px] rounded-lg border-[0.5px] border-info">projected</span>
                               )}
                             </div>
                           </>
                         )}
                       </div>
                       {!isEditingRow && (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: t.type === 'income' ? 'var(--color-text-success)' : 'var(--color-text-primary)', flexShrink: 0 }}>
+                        <span className={`font-mono text-[15px] shrink-0 ${t.type === 'income' ? 'text-success' : 'text-text'}`}>
                           {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
                         </span>
                       )}
                       {!isProjected && (
-                        <div style={{ display: 'flex', gap: 8 }}>
+                        <div className="flex gap-2">
                           {isEditingRow ? (
                             <>
-                              <button className="btn-p" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => saveRowEdit(t.id)}>Save</button>
-                              <button className="btn-g" style={{ padding: '4px 12px', fontSize: 12 }} onClick={() => setEditingRowId(null)}>✕</button>
+                              <button className="btn-primary py-1 px-3 text-xs" onClick={() => saveRowEdit(t.id)}>Save</button>
+                              <button className="btn-ghost py-1 px-3 text-xs" onClick={() => setEditingRowId(null)}>✕</button>
                             </>
                           ) : (
                             <>
-                              <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11 }} onClick={() => startRowEdit(t)}>Edit</button>
-                              <button className="btn-g" style={{ padding: '4px 8px', fontSize: 11, color: 'var(--color-text-danger)' }} onClick={() => onDelete(t.id)}>✕</button>
+                              <button className="btn-ghost py-1 px-2 text-[11px]" onClick={() => startRowEdit(t)}>Edit</button>
+                              <button className="btn-ghost py-1 px-2 text-[11px] text-danger" onClick={() => onDelete(t.id)}>✕</button>
                             </>
                           )}
                         </div>
@@ -859,33 +774,32 @@ export default function MonthView({
         )}
       </div>
 
-      {/* ── Budget overrides (collapsible) ── */}
-      <div style={{ ...cardStyle, marginBottom: 16 }}>
+      <div className="card mb-4">
         <div
           onClick={() => setOverridesExpanded(!overridesExpanded)}
-          style={{ ...sectionHeaderStyle, borderBottom: overridesExpanded ? '0.5px solid var(--color-border-tertiary)' : 'none' }}
+          className={`flex items-center justify-between px-4 py-3 cursor-pointer select-none ${overridesExpanded ? 'border-b-[0.5px] border-border-subtle' : ''}`}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)', transition: 'transform 0.15s', display: 'inline-block', transform: overridesExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▾</span>
-            <span style={{ fontSize: 14, fontWeight: 500 }}>Budget overrides for {MONTHS[month]}</span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-[13px] text-muted inline-block transition-transform duration-150" style={{ transform: overridesExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}>▾</span>
+            <span className="text-sm font-medium">Budget overrides for {MONTHS[month]}</span>
             {Object.keys(monthOverrides).length > 0 && (
-              <span style={{ fontSize: 11, background: 'var(--color-background-info)', color: 'var(--color-text-info)', padding: '2px 8px', borderRadius: 10 }}>
+              <span className="text-[11px] bg-info-bg text-info px-2 py-[2px] rounded-[10px]">
                 {Object.keys(monthOverrides).length} active
               </span>
             )}
           </div>
-          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{overridesExpanded ? 'Collapse' : 'Expand'}</span>
+          <span className="text-xs text-muted">{overridesExpanded ? 'Collapse' : 'Expand'}</span>
         </div>
 
         {overridesExpanded && (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <table className="w-full border-collapse text-[13px]">
             <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '0.5px solid var(--color-border-tertiary)', background: 'var(--color-background-secondary)' }}>
-                <th style={{ padding: '10px 16px', fontWeight: 500 }}>Category</th>
-                <th style={{ padding: '10px 16px', fontWeight: 500 }}>Global limit</th>
-                <th style={{ padding: '10px 16px', fontWeight: 500 }}>This month</th>
-                <th style={{ padding: '10px 16px', fontWeight: 500 }}>Status</th>
-                <th style={{ padding: '10px 16px' }}></th>
+              <tr className="text-left border-b-[0.5px] border-border-subtle bg-raised">
+                <th className="px-4 py-2.5 font-medium">Category</th>
+                <th className="px-4 py-2.5 font-medium">Global limit</th>
+                <th className="px-4 py-2.5 font-medium">This month</th>
+                <th className="px-4 py-2.5 font-medium">Status</th>
+                <th className="px-4 py-2.5"></th>
               </tr>
             </thead>
             <tbody>
@@ -893,16 +807,16 @@ export default function MonthView({
                 const globalLimit = resolveMonthBudget(budgetEntries, {}, c.id, year, month);
                 const override = monthOverrides[c.id];
                 return (
-                  <tr key={c.id} style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-                    <td style={{ padding: '10px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
+                  <tr key={c.id} className="border-b-[0.5px] border-border-subtle last:border-b-0">
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.color }} />
                         {c.label}
                       </div>
                     </td>
-                    <td style={{ padding: '10px 16px', color: 'var(--color-text-secondary)', fontFamily: 'var(--font-mono)' }}>{fmt(globalLimit)}</td>
-                    <td style={{ padding: '10px 16px' }}>
-                      <input className="input-f" style={{ width: 100, padding: '4px 8px' }} type="number"
+                    <td className="px-4 py-2.5 text-muted font-mono">{fmt(globalLimit)}</td>
+                    <td className="px-4 py-2.5">
+                      <input className="input-field !w-[100px] !py-1 !px-2" type="number"
                         value={override !== undefined ? override : globalLimit}
                         onChange={e => {
                           const val = parseFloat(e.target.value);
@@ -913,13 +827,13 @@ export default function MonthView({
                         }}
                       />
                     </td>
-                    <td style={{ padding: '10px 16px' }}>
-                      {override !== undefined && <span style={{ fontSize: 11, color: '#EF9F27', fontWeight: 500 }}>Override active</span>}
+                    <td className="px-4 py-2.5">
+                      {override !== undefined && <span className="text-[11px] text-warning font-medium">Override active</span>}
                     </td>
-                    <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                    <td className="px-4 py-2.5 text-right">
                       {override !== undefined && (
                         <button onClick={() => { const next = { ...monthOverrides }; delete next[c.id]; onSaveOverride(next); }}
-                          title="Reset to global" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--color-text-secondary)' }}>↩</button>
+                          title="Reset to global" className="bg-transparent border-0 cursor-pointer text-base text-muted">↩</button>
                       )}
                     </td>
                   </tr>

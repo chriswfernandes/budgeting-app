@@ -25,7 +25,7 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
     startYear: new Date().getFullYear(),
     startMonth: new Date().getMonth(),
     endYear: new Date().getFullYear(),
-    endMonth: (new Date().getMonth() + 11) % 12, // Default 12 months
+    endMonth: (new Date().getMonth() + 11) % 12,
     incomeChanges: [],
     categoryChanges: [],
     oneOffCosts: [],
@@ -35,7 +35,6 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
     status: 'active'
   });
 
-  // Correct endYear if endMonth wrapped
   useEffect(() => {
     if (!existing && form.endMonth < form.startMonth && form.endYear === form.startYear) {
       setForm(f => ({ ...f, endYear: f.startYear + 1 }));
@@ -57,21 +56,15 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
 
   const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
 
-  // --- Step 2: Income Logic ---
   const handleIncomeChange = (sourceId, amount, isNew = false, label = '') => {
     const existingIdx = form.incomeChanges.findIndex(c => c.sourceId === sourceId);
     let nextChanges = [...form.incomeChanges];
-    
     if (amount === null) {
-      // "Keep as-is" - remove from changes
       nextChanges = nextChanges.filter(c => c.sourceId !== sourceId);
     } else {
       const change = { sourceId, monthlyAmount: amount, isNew, label: label || incomeSources.find(s => s.id === sourceId)?.label };
-      if (existingIdx !== -1) {
-        nextChanges[existingIdx] = change;
-      } else {
-        nextChanges.push(change);
-      }
+      if (existingIdx !== -1) nextChanges[existingIdx] = change;
+      else nextChanges.push(change);
     }
     setForm({ ...form, incomeChanges: nextChanges });
   };
@@ -82,7 +75,6 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
     return sum + (change ? change.monthlyAmount : s.amount);
   }, 0) + form.incomeChanges.filter(c => c.isNew).reduce((sum, c) => sum + c.monthlyAmount, 0);
 
-  // --- Step 3: Expense Logic ---
   const handleCategoryChange = (categoryId, amount) => {
     let nextChanges = [...form.categoryChanges];
     if (amount === null) {
@@ -109,60 +101,61 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
   };
 
   return (
-    <div style={{ background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)', padding: 32, maxWidth: 800, margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 500 }}>{existing ? 'Edit Scenario' : 'New Scenario'}</h2>
-        <span style={{ fontSize: 12, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Step {step} of 4</span>
+    <div className="card p-8 max-w-[800px] mx-auto">
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-xl font-medium">{existing ? 'Edit Scenario' : 'New Scenario'}</h2>
+        <span className="text-xs text-muted uppercase tracking-[0.05em]">Step {step} of 4</span>
       </div>
 
-      <div style={{ marginBottom: 40 }}>
+      <div className="mb-10">
         {step === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          <div className="flex flex-col gap-6">
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Scenario Name</label>
-              <input className="input-f" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Maternity Leave 2026" />
+              <label className="block text-[13px] font-medium mb-2">Scenario Name</label>
+              <input className="input-field" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Maternity Leave 2026" />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Description (optional)</label>
-              <textarea className="input-f" style={{ height: 80, resize: 'none' }} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Add notes about this projection..." />
+              <label className="block text-[13px] font-medium mb-2">Description (optional)</label>
+              <textarea className="input-field !h-20 resize-none" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Add notes about this projection..." />
             </div>
             <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Theme Color</label>
-              <div style={{ display: 'flex', gap: 12 }}>
+              <label className="block text-[13px] font-medium mb-2">Theme Color</label>
+              <div className="flex gap-3">
                 {COLORS.map(c => (
-                  <button 
-                    key={c.value} 
+                  <button
+                    key={c.value}
                     onClick={() => setForm({ ...form, color: c.value })}
-                    style={{ width: 32, height: 32, borderRadius: '50%', background: c.value, border: form.color === c.value ? '2px solid var(--color-text-primary)' : '2px solid transparent', cursor: 'pointer', padding: 0 }}
+                    className="w-8 h-8 rounded-full cursor-pointer p-0 border-2"
+                    style={{ background: c.value, borderColor: form.color === c.value ? 'var(--color-text)' : 'transparent' }}
                   />
                 ))}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div className="grid grid-cols-2 gap-5">
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Start Date</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <select className="input-f" value={form.startMonth} onChange={e => setForm({ ...form, startMonth: parseInt(e.target.value) })}>
+                <label className="block text-[13px] font-medium mb-2">Start Date</label>
+                <div className="flex gap-2">
+                  <select className="input-field" value={form.startMonth} onChange={e => setForm({ ...form, startMonth: parseInt(e.target.value) })}>
                     {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
                   </select>
-                  <select className="input-f" value={form.startYear} onChange={e => setForm({ ...form, startYear: parseInt(e.target.value) })}>
+                  <select className="input-field" value={form.startYear} onChange={e => setForm({ ...form, startYear: parseInt(e.target.value) })}>
                     {years.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>End Date (inclusive)</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <select className="input-f" value={form.endMonth} onChange={e => setForm({ ...form, endMonth: parseInt(e.target.value) })}>
+                <label className="block text-[13px] font-medium mb-2">End Date (inclusive)</label>
+                <div className="flex gap-2">
+                  <select className="input-field" value={form.endMonth} onChange={e => setForm({ ...form, endMonth: parseInt(e.target.value) })}>
                     {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
                   </select>
-                  <select className="input-f" value={form.endYear} onChange={e => setForm({ ...form, endYear: parseInt(e.target.value) })}>
+                  <select className="input-field" value={form.endYear} onChange={e => setForm({ ...form, endYear: parseInt(e.target.value) })}>
                     {years.map(y => <option key={y} value={y}>{y}</option>)}
                   </select>
                 </div>
               </div>
             </div>
-            <div style={{ padding: '12px 16px', background: 'var(--color-background-secondary)', borderRadius: 8, fontSize: 13, color: duration > 36 || duration <= 0 ? 'var(--color-text-danger)' : 'var(--color-text-secondary)' }}>
+            <div className={`px-4 py-3 bg-raised rounded-lg text-[13px] ${duration > 36 || duration <= 0 ? 'text-danger' : 'text-muted'}`}>
               {duration <= 0 ? 'End date must be after start date' : `Duration: ${duration} months ${duration > 36 ? '(Max 36 months)' : ''}`}
             </div>
           </div>
@@ -170,21 +163,20 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
 
         {step === 2 && (
           <div>
-            <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 24 }}>How does income change during this period?</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+            <p className="text-sm text-muted mb-6">How does income change during this period?</p>
+            <div className="flex flex-col gap-4 mb-8">
               {incomeSources.map(s => {
                 const change = form.incomeChanges.find(c => c.sourceId === s.id);
                 const mode = change === undefined ? 'keep' : (change.monthlyAmount === 0 ? 'remove' : 'reduce');
                 return (
-                  <div key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8 }}>
+                  <div key={s.id} className="flex items-center justify-between px-4 py-3 border-[0.5px] border-border-subtle rounded-lg">
                     <div>
-                      <p style={{ fontWeight: 500, fontSize: 14 }}>{s.label}</p>
-                      <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>Current: {fmt(s.amount)}/mo</p>
+                      <p className="font-medium text-sm">{s.label}</p>
+                      <p className="text-xs text-muted">Current: {fmt(s.amount)}/mo</p>
                     </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <select 
-                        className="input-f" 
-                        style={{ width: 140, fontSize: 13 }}
+                    <div className="flex gap-2 items-center">
+                      <select
+                        className="input-field !w-[140px] !text-[13px]"
                         value={mode}
                         onChange={e => {
                           const val = e.target.value;
@@ -198,12 +190,11 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
                         <option value="remove">Removed</option>
                       </select>
                       {mode === 'reduce' && (
-                        <input 
-                          className="input-f" 
-                          style={{ width: 100 }} 
-                          type="number" 
-                          value={change.monthlyAmount} 
-                          onChange={e => handleIncomeChange(s.id, parseFloat(e.target.value) || 0)} 
+                        <input
+                          className="input-field !w-[100px]"
+                          type="number"
+                          value={change.monthlyAmount}
+                          onChange={e => handleIncomeChange(s.id, parseFloat(e.target.value) || 0)}
                         />
                       )}
                     </div>
@@ -211,25 +202,25 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
                 );
               })}
               {form.incomeChanges.filter(c => c.isNew).map(c => (
-                <div key={c.sourceId} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8, background: 'var(--color-background-secondary)' }}>
-                  <input className="input-f" value={c.label} onChange={e => handleIncomeChange(c.sourceId, c.monthlyAmount, true, e.target.value)} placeholder="Income Label" />
-                  <input className="input-f" type="number" value={c.monthlyAmount} onChange={e => handleIncomeChange(c.sourceId, parseFloat(e.target.value) || 0, true, c.label)} placeholder="Amount" />
-                  <button className="btn-g" onClick={() => setForm({ ...form, incomeChanges: form.incomeChanges.filter(ic => ic.sourceId !== c.sourceId) })}>✕</button>
+                <div key={c.sourceId} className="flex items-center gap-3 px-4 py-3 border-[0.5px] border-border-subtle rounded-lg bg-raised">
+                  <input className="input-field" value={c.label} onChange={e => handleIncomeChange(c.sourceId, c.monthlyAmount, true, e.target.value)} placeholder="Income Label" />
+                  <input className="input-field" type="number" value={c.monthlyAmount} onChange={e => handleIncomeChange(c.sourceId, parseFloat(e.target.value) || 0, true, c.label)} placeholder="Amount" />
+                  <button className="btn-ghost" onClick={() => setForm({ ...form, incomeChanges: form.incomeChanges.filter(ic => ic.sourceId !== c.sourceId) })}>✕</button>
                 </div>
               ))}
-              <button className="btn-g" style={{ alignSelf: 'flex-start', fontSize: 12 }} onClick={() => handleIncomeChange(`new-${Date.now()}`, 0, true, 'New Income')}>+ Add temporary income source</button>
+              <button className="btn-ghost self-start text-xs" onClick={() => handleIncomeChange(`new-${Date.now()}`, 0, true, 'New Income')}>+ Add temporary income source</button>
             </div>
-            
-            <div style={{ padding: 20, background: 'var(--color-background-secondary)', borderRadius: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+
+            <div className="bg-raised rounded-xl p-5">
+              <div className="flex justify-between text-[13px] mb-2">
                 <span>Baseline monthly income:</span>
                 <span>{fmt(baselineIncome)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 12, fontWeight: 500 }}>
+              <div className="flex justify-between text-[13px] mb-3 font-medium">
                 <span>Scenario monthly income:</span>
                 <span>{fmt(scenarioIncome)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 600, color: scenarioIncome >= baselineIncome ? 'var(--color-text-success)' : 'var(--color-text-danger)', borderTop: '0.5px solid var(--color-border-tertiary)', paddingTop: 12 }}>
+              <div className={`flex justify-between text-sm font-semibold border-t-[0.5px] border-border-subtle pt-3 ${scenarioIncome >= baselineIncome ? 'text-success' : 'text-danger'}`}>
                 <span>Monthly difference:</span>
                 <span>{scenarioIncome >= baselineIncome ? '+' : '-'}{fmt(Math.abs(scenarioIncome - baselineIncome))}</span>
               </div>
@@ -239,40 +230,40 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
 
         {step === 3 && (
           <div>
-            <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 24 }}>Do any spending patterns change during this period?</p>
-            
-            <h4 style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>Category Budget Adjustments</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 32 }}>
+            <p className="text-sm text-muted mb-6">Do any spending patterns change during this period?</p>
+
+            <h4 className="text-[13px] font-semibold uppercase tracking-[0.05em] mb-4">Category Budget Adjustments</h4>
+            <div className="flex flex-col gap-2 mb-8">
               {categories.filter(c => !c.isIncome && !c.parentId && resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth) !== null).map(cat => {
                 const change = form.categoryChanges.find(cc => cc.categoryId === cat.id);
                 const baseAmount = resolveMonthBudget(budgetEntries, {}, cat.id, curYear, curMonth);
                 return (
-                  <div key={cat.id} style={{ display: 'grid', gridTemplateColumns: '1fr 100px 30px 120px', alignItems: 'center', gap: 12, padding: '8px 12px', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color }} />
-                      <span style={{ fontSize: 14 }}>{cat.label}</span>
+                  <div key={cat.id} className="grid items-center gap-3 px-3 py-2 border-[0.5px] border-border-subtle rounded-lg" style={{ gridTemplateColumns: '1fr 100px 30px 120px' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full" style={{ background: cat.color }} />
+                      <span className="text-sm">{cat.label}</span>
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{fmt(baseAmount)}/mo</span>
-                    <span style={{ textAlign: 'center', color: 'var(--color-text-secondary)' }}>→</span>
-                    <input 
-                      className="input-f" 
-                      type="number" 
+                    <span className="text-xs text-muted">{fmt(baseAmount)}/mo</span>
+                    <span className="text-center text-muted">→</span>
+                    <input
+                      className="input-field"
+                      type="number"
                       placeholder="As-is"
-                      value={change?.monthlyLimit ?? ''} 
-                      onChange={e => handleCategoryChange(cat.id, e.target.value === '' ? null : parseFloat(e.target.value))} 
+                      value={change?.monthlyLimit ?? ''}
+                      onChange={e => handleCategoryChange(cat.id, e.target.value === '' ? null : parseFloat(e.target.value))}
                     />
                   </div>
                 );
               })}
             </div>
 
-            <h4 style={{ fontSize: 13, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>One-off Costs</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            <h4 className="text-[13px] font-semibold uppercase tracking-[0.05em] mb-4">One-off Costs</h4>
+            <div className="flex flex-col gap-3 mb-4">
               {form.oneOffCosts.map(oc => (
-                <div key={oc.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 140px 40px', gap: 8 }}>
-                  <input className="input-f" placeholder="Label (e.g. Vacation)" value={oc.label} onChange={e => updateOneOff(oc.id, { label: e.target.value })} />
-                  <input className="input-f" type="number" placeholder="Amount" value={oc.amount || ''} onChange={e => updateOneOff(oc.id, { amount: parseFloat(e.target.value) || 0 })} />
-                  <select className="input-f" value={oc.month} onChange={e => updateOneOff(oc.id, { month: parseInt(e.target.value) })}>
+                <div key={oc.id} className="grid gap-2" style={{ gridTemplateColumns: '1fr 120px 140px 40px' }}>
+                  <input className="input-field" placeholder="Label (e.g. Vacation)" value={oc.label} onChange={e => updateOneOff(oc.id, { label: e.target.value })} />
+                  <input className="input-field" type="number" placeholder="Amount" value={oc.amount || ''} onChange={e => updateOneOff(oc.id, { amount: parseFloat(e.target.value) || 0 })} />
+                  <select className="input-field" value={oc.month} onChange={e => updateOneOff(oc.id, { month: parseInt(e.target.value) })}>
                     {Array.from({ length: duration }).map((_, i) => {
                       const m = (form.startMonth + i) % 12;
                       const y = form.startYear + Math.floor((form.startMonth + i) / 12);
@@ -280,34 +271,34 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
                       return <option key={i} value={i}>{labels[m]} {y}</option>;
                     })}
                   </select>
-                  <button className="btn-g" onClick={() => removeOneOff(oc.id)}>✕</button>
+                  <button className="btn-ghost" onClick={() => removeOneOff(oc.id)}>✕</button>
                 </div>
               ))}
-              <button className="btn-g" style={{ alignSelf: 'flex-start', fontSize: 12 }} onClick={addOneOff}>+ Add one-time expense</button>
+              <button className="btn-ghost self-start text-xs" onClick={addOneOff}>+ Add one-time expense</button>
             </div>
           </div>
         )}
 
         {step === 4 && (
           <div>
-            <p style={{ fontSize: 14, color: 'var(--color-text-secondary)', marginBottom: 24 }}>Set targets to track against the projection.</p>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginBottom: 40 }}>
+            <p className="text-sm text-muted mb-6">Set targets to track against the projection.</p>
+
+            <div className="flex flex-col gap-6 mb-10">
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Savings Floor (Optional)</label>
-                <input className="input-f" type="number" placeholder="e.g. 5000" value={form.floorAmount ?? ''} onChange={e => setForm({ ...form, floorAmount: e.target.value === '' ? undefined : parseFloat(e.target.value) })} />
-                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>Alert me if projected cumulative balance drops below this amount.</p>
+                <label className="block text-[13px] font-medium mb-2">Savings Floor (Optional)</label>
+                <input className="input-field" type="number" placeholder="e.g. 5000" value={form.floorAmount ?? ''} onChange={e => setForm({ ...form, floorAmount: e.target.value === '' ? undefined : parseFloat(e.target.value) })} />
+                <p className="text-xs text-muted mt-2">Alert me if projected cumulative balance drops below this amount.</p>
               </div>
               <div>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, marginBottom: 8 }}>Savings Target (Optional)</label>
-                <input className="input-f" type="number" placeholder="e.g. 10000" value={form.savingsTarget ?? ''} onChange={e => setForm({ ...form, savingsTarget: e.target.value === '' ? undefined : parseFloat(e.target.value) })} />
-                <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 8 }}>The total amount I want to have saved by the end of this scenario.</p>
+                <label className="block text-[13px] font-medium mb-2">Savings Target (Optional)</label>
+                <input className="input-field" type="number" placeholder="e.g. 10000" value={form.savingsTarget ?? ''} onChange={e => setForm({ ...form, savingsTarget: e.target.value === '' ? undefined : parseFloat(e.target.value) })} />
+                <p className="text-xs text-muted mt-2">The total amount I want to have saved by the end of this scenario.</p>
               </div>
             </div>
 
-            <div style={{ background: 'var(--color-background-secondary)', borderRadius: 12, padding: 24 }}>
-              <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>Review Summary</h4>
-              <ul style={{ fontSize: 13, color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', gap: 8, paddingLeft: 20 }}>
+            <div className="bg-raised rounded-xl p-6">
+              <h4 className="text-sm font-semibold mb-4">Review Summary</h4>
+              <ul className="text-[13px] text-muted flex flex-col gap-2 pl-5 list-disc">
                 <li>Covers {duration} months: {MONTHS[form.startMonth]} {form.startYear} → {MONTHS[form.endMonth]} {form.endYear}</li>
                 {form.incomeChanges.map(c => (
                   <li key={c.sourceId}>{c.label}: {c.monthlyAmount === 0 ? 'Removed' : `Changed to ${fmt(c.monthlyAmount)}/mo`}</li>
@@ -324,9 +315,9 @@ export default function ScenarioBuilder({ existing, incomeSources, budgetEntries
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <button className="btn-g" onClick={step === 1 ? onCancel : back}>{step === 1 ? 'Cancel' : 'Back'}</button>
-        <button className="btn-p" onClick={() => {
+      <div className="flex justify-between">
+        <button className="btn-ghost" onClick={step === 1 ? onCancel : back}>{step === 1 ? 'Cancel' : 'Back'}</button>
+        <button className="btn-primary" onClick={() => {
           const err = step === 1 ? validateStep1() : null;
           if (err) alert(err);
           else step === 4 ? onSave(form) : next();

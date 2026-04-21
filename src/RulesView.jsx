@@ -11,13 +11,13 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
 
   const saveRule = () => {
     if (!form.trigger.trim()) return;
-    const newRule = { 
-      id: `rule-${Date.now()}`, 
-      trigger: form.trigger, 
-      targetCategory: form.targetCategory, 
+    const newRule = {
+      id: `rule-${Date.now()}`,
+      trigger: form.trigger,
+      targetCategory: form.targetCategory,
       amountThreshold: form.amountThreshold ? parseFloat(form.amountThreshold) : undefined,
       type: form.type || undefined,
-      active: true 
+      active: true
     };
     onSaveRules([...rules, newRule]);
     setForm({ trigger: '', targetCategory: categories[0]?.id || '', amountThreshold: '', type: '' });
@@ -25,9 +25,9 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
 
   const saveInlineEdit = (id) => {
     if (!editForm.trigger.trim()) return;
-    const newRules = rules.map(r => r.id === id ? { 
-      ...r, 
-      trigger: editForm.trigger, 
+    const newRules = rules.map(r => r.id === id ? {
+      ...r,
+      trigger: editForm.trigger,
       targetCategory: editForm.targetCategory,
       amountThreshold: editForm.amountThreshold ? parseFloat(editForm.amountThreshold) : undefined,
       type: editForm.type || undefined
@@ -38,8 +38,8 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
 
   const startInlineEdit = (rule) => {
     setEditingId(rule.id);
-    setEditForm({ 
-      trigger: rule.trigger, 
+    setEditForm({
+      trigger: rule.trigger,
       targetCategory: rule.targetCategory,
       amountThreshold: rule.amountThreshold?.toString() || '',
       type: rule.type || ''
@@ -56,8 +56,8 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
     setReapplyResult(count);
     setReapplying(false);
   };
-  
-  const filteredRules = rules.filter(r => 
+
+  const filteredRules = rules.filter(r =>
     r.trigger.toLowerCase().includes(search.toLowerCase()) ||
     categories.find(c => c.id === r.targetCategory)?.label.toLowerCase().includes(search.toLowerCase())
   );
@@ -66,67 +66,97 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
 
   return (
     <div>
-      <div style={{ marginBottom:28 }}><h1 style={{ fontSize:26, fontWeight:500, marginBottom:4 }}>Rules</h1><p style={{ color:'var(--color-text-secondary)', fontSize:14 }}>Manage categorization rules.</p></div>
-      <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap:20, alignItems: 'start' }}>
-        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:16, position: 'sticky', top: 76 }}>
-          <p style={{ fontSize:11, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:16 }}>Create Rule</p>
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-            <div><label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Contains:</label><input className="input-f" value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} placeholder="e.g., Starbucks" /></div>
-            <div><label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Category:</label><select className="input-f" value={form.targetCategory} onChange={e => setForm({...form, targetCategory: e.target.value})}>{categories.map(c => <option key={c.id} value={c.id}>{c.parentId ? '↳ ' + c.label : c.label}</option>)}</select></div>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              <div><label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Amount &gt; :</label><input className="input-f" type="number" value={form.amountThreshold} onChange={e => setForm({...form, amountThreshold: e.target.value})} placeholder="0.00" /></div>
-              <div><label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Type:</label><select className="input-f" value={form.type} onChange={e => setForm({...form, type: e.target.value})}><option value="">Any</option><option value="expense">Expense</option><option value="income">Income</option></select></div>
+      <div className="mb-7">
+        <h1 className="text-[26px] font-medium mb-1">Rules</h1>
+        <p className="text-sm text-muted">Manage categorization rules.</p>
+      </div>
+      <div className="grid grid-cols-[280px_1fr] gap-5 items-start">
+        <div className="card p-4 sticky top-[76px]">
+          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-4">Create Rule</p>
+          <div className="flex flex-col gap-3">
+            <div>
+              <label className="text-xs text-muted mb-1 block">Contains:</label>
+              <input className="input-field" value={form.trigger} onChange={e => setForm({...form, trigger: e.target.value})} placeholder="e.g., Starbucks" />
             </div>
-            <div style={{ marginTop:8 }}><button className="btn-p" style={{ width:'100%' }} onClick={saveRule}>Add Rule</button></div>
+            <div>
+              <label className="text-xs text-muted mb-1 block">Category:</label>
+              <select className="input-field" value={form.targetCategory} onChange={e => setForm({...form, targetCategory: e.target.value})}>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.parentId ? '↳ ' + c.label : c.label}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted mb-1 block">Amount &gt; :</label>
+                <input className="input-field" type="number" value={form.amountThreshold} onChange={e => setForm({...form, amountThreshold: e.target.value})} placeholder="0.00" />
+              </div>
+              <div>
+                <label className="text-xs text-muted mb-1 block">Type:</label>
+                <select className="input-field" value={form.type} onChange={e => setForm({...form, type: e.target.value})}>
+                  <option value="">Any</option>
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-2">
+              <button className="btn-primary w-full" onClick={saveRule}>Add Rule</button>
+            </div>
           </div>
         </div>
 
         <div>
           {!rules.some(r => r.targetCategory === 'cc-payment') && (
-            <div style={{ marginBottom: 16, padding: '10px 14px', background: 'var(--color-background-info)', border: '0.5px solid var(--color-text-info)', borderRadius: 'var(--border-radius-md)', fontSize: 12, color: 'var(--color-text-info)', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div className="mb-4 px-3.5 py-2.5 bg-info-bg border-[0.5px] border-info rounded-md text-xs text-info flex items-center gap-2.5">
               <span>💳</span>
               <span>Tip: create rules mapping <strong>"VISA PREAUTH PYMT"</strong> (checking) and <strong>"PREAUTHORIZED PAYMENT"</strong> (credit card) → <strong>CC Payment</strong> to automatically exclude credit card bill payments from your totals.</span>
             </div>
           )}
-          <div style={{ padding: '8px 0', marginBottom: 12, position: 'sticky', top: 76, background: 'var(--color-background-tertiary)', zIndex: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}><span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{filteredRules.length} rules</span><input className="input-f" style={{ maxWidth: 240, padding: '6px 12px', fontSize: 13 }} placeholder="Search rules..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+          <div className="py-2 mb-3 sticky top-[76px] bg-bg z-[5] flex justify-between items-center gap-4">
+            <span className="text-[13px] text-muted">{filteredRules.length} rules</span>
+            <input className="input-field" style={{ maxWidth: 240, padding: '6px 12px', fontSize: 13 }} placeholder="Search rules..." value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
           {filteredRules.length === 0 && search === '' && (
-            <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'32px 24px', textAlign:'center', color:'var(--color-text-secondary)', fontSize:13 }}>
+            <div className="card px-6 py-8 text-center text-muted text-[13px]">
               No rules yet. Create one using the panel on the left.
             </div>
           )}
-          <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+          <div className="card overflow-hidden">
             {filteredRules.map((r) => {
               const c = categories.find(cat => cat.id === r.targetCategory);
               const isEditing = editingId === r.id;
 
               return (
-                <div key={r.id} className="txn-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: '0.5px solid var(--color-border-tertiary)', opacity: r.active || isEditing ? 1 : 0.5 }}>
+                <div key={r.id} className={`txn-row flex items-center gap-3 px-4 py-3 border-b-[0.5px] border-border-subtle last:border-b-0 ${r.active || isEditing ? '' : 'opacity-50'}`}>
                   {!isEditing && (
                     <label className="switch"><input type="checkbox" checked={r.active} onChange={() => toggle(r.id)} /><span className="slider"></span></label>
                   )}
-                  
-                  <div style={{ flex:1 }}>
+
+                  <div className="flex-1">
                     {isEditing ? (
-                      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap: 'wrap' }}>
-                        <input className="input-f" style={{ flex:'1 1 200px', fontSize:13, padding:'4px 8px' }} value={editForm.trigger} onChange={e => setEditForm({...editForm, trigger: e.target.value})} autoFocus />
-                        <select className="input-f" style={{ flex:'1 1 120px', fontSize:13, padding:'4px 8px' }} value={editForm.targetCategory} onChange={e => setEditForm({...editForm, targetCategory: e.target.value})}>
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <input className="input-field !text-[13px] !py-1 !px-2" style={{ flex: '1 1 200px' }} value={editForm.trigger} onChange={e => setEditForm({...editForm, trigger: e.target.value})} autoFocus />
+                        <select className="input-field !text-[13px] !py-1 !px-2" style={{ flex: '1 1 120px' }} value={editForm.targetCategory} onChange={e => setEditForm({...editForm, targetCategory: e.target.value})}>
                           {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.parentId ? '↳ ' + cat.label : cat.label}</option>)}
                         </select>
-                        <input className="input-f" style={{ flex:'1 1 80px', fontSize:13, padding:'4px 8px' }} type="number" value={editForm.amountThreshold} onChange={e => setEditForm({...editForm, amountThreshold: e.target.value})} placeholder="Amt >" />
-                        <select className="input-f" style={{ flex:'1 1 100px', fontSize:13, padding:'4px 8px' }} value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})}><option value="">Any</option><option value="expense">Expense</option><option value="income">Income</option></select>
+                        <input className="input-field !text-[13px] !py-1 !px-2" style={{ flex: '1 1 80px' }} type="number" value={editForm.amountThreshold} onChange={e => setEditForm({...editForm, amountThreshold: e.target.value})} placeholder="Amt >" />
+                        <select className="input-field !text-[13px] !py-1 !px-2" style={{ flex: '1 1 100px' }} value={editForm.type} onChange={e => setEditForm({...editForm, type: e.target.value})}>
+                          <option value="">Any</option>
+                          <option value="expense">Expense</option>
+                          <option value="income">Income</option>
+                        </select>
                       </div>
                     ) : (
                       <>
-                        <p style={{ fontSize:14, fontWeight:500 }}>"{r.trigger}"</p>
-                        <div style={{ display:'flex', alignItems:'center', gap:12, fontSize:12, color:'var(--color-text-secondary)', marginTop:2 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                        <p className="text-sm font-medium">"{r.trigger}"</p>
+                        <div className="flex items-center gap-3 text-xs text-muted mt-0.5">
+                          <div className="flex items-center gap-1.5">
                             <span>↳</span>
-                            <span style={{ width:8, height:8, borderRadius:'50%', background:c?.color||'#888', display:'inline-block' }} />
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: c?.color || '#888' }} />
                             {c?.label || 'Unknown'}
                           </div>
                           {(r.amountThreshold || r.type) && (
-                            <span style={{ opacity:0.8 }}>
-                              (r.type || 'any') {r.amountThreshold ? `&gt; ${fmt(r.amountThreshold)}` : ''}
+                            <span className="opacity-80">
+                              ({r.type || 'any'}) {r.amountThreshold ? `> ${fmt(r.amountThreshold)}` : ''}
                             </span>
                           )}
                         </div>
@@ -134,16 +164,16 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
                     )}
                   </div>
 
-                  <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                  <div className="flex gap-2 shrink-0">
                     {isEditing ? (
                       <>
-                        <button className="btn-p" style={{ padding:'4px 12px', fontSize:12 }} onClick={() => saveInlineEdit(r.id)}>Save</button>
-                        <button className="btn-g" style={{ padding:'4px 12px', fontSize:12 }} onClick={() => setEditingId(null)}>✕</button>
+                        <button className="btn-primary py-1 px-3 text-xs" onClick={() => saveInlineEdit(r.id)}>Save</button>
+                        <button className="btn-ghost py-1 px-3 text-xs" onClick={() => setEditingId(null)}>✕</button>
                       </>
                     ) : (
                       <>
-                        <button className="btn-g" style={{ padding:'4px 10px', fontSize:12 }} onClick={() => startInlineEdit(r)}>Edit</button>
-                        <button className="btn-g" style={{ padding:'4px 10px', fontSize:12, color:'var(--color-text-danger)' }} onClick={() => del(r.id)}>✕</button>
+                        <button className="btn-ghost py-1 px-2.5 text-xs" onClick={() => startInlineEdit(r)}>Edit</button>
+                        <button className="btn-ghost py-1 px-2.5 text-xs text-danger" onClick={() => del(r.id)}>✕</button>
                       </>
                     )}
                   </div>
@@ -152,36 +182,34 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
             })}
           </div>
 
-          {/* Bulk actions */}
-          <div style={{ marginTop: 24, padding: 16, background: 'var(--color-background-primary)', border: '0.5px solid var(--color-border-tertiary)', borderRadius: 'var(--border-radius-lg)' }}>
-            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Bulk actions</p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div className="card p-4 mt-6">
+            <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-3">Bulk actions</p>
+            <div className="flex items-center gap-3 flex-wrap">
               {reapplyResult !== null ? (
-                <span style={{ fontSize: 13, color: 'var(--color-text-success)' }}>
+                <span className="text-[13px] text-success">
                   ✓ {reapplyResult} transaction{reapplyResult !== 1 ? 's' : ''} reclassified
-                  <button onClick={() => setReapplyResult(null)} style={{ background: 'none', border: 'none', color: 'var(--color-text-secondary)', cursor: 'pointer', fontSize: 12, marginLeft: 8, textDecoration: 'underline', padding: 0 }}>dismiss</button>
+                  <button onClick={() => setReapplyResult(null)} className="bg-transparent border-0 text-muted cursor-pointer text-xs ml-2 underline p-0">dismiss</button>
                 </span>
               ) : confirmReapply ? (
                 <>
-                  <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                  <span className="text-[13px] text-muted">
                     Run {rules.filter(r => r.active).length} active rules against {txnCount} stored transactions?
                   </span>
-                  <button className="btn-p" style={{ padding: '5px 14px', fontSize: 12 }} onClick={runReapply} disabled={reapplying}>
+                  <button className="btn-primary py-[5px] px-3.5 text-xs" onClick={runReapply} disabled={reapplying}>
                     {reapplying ? 'Running…' : 'Confirm'}
                   </button>
-                  <button className="btn-g" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setConfirmReapply(false)}>Cancel</button>
+                  <button className="btn-ghost py-[5px] px-2.5 text-xs" onClick={() => setConfirmReapply(false)}>Cancel</button>
                 </>
               ) : (
                 <>
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 500 }}>Re-apply rules to all imported transactions</p>
-                    <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                    <p className="text-[13px] font-medium">Re-apply rules to all imported transactions</p>
+                    <p className="text-xs text-muted mt-0.5">
                       Updates categories on all {txnCount} stored transactions using your current active rules.
                     </p>
                   </div>
                   <button
-                    className="btn-g"
-                    style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0 }}
+                    className="btn-ghost py-1.5 px-3.5 text-xs whitespace-nowrap shrink-0"
                     onClick={() => setConfirmReapply(true)}
                     disabled={!rules.some(r => r.active) || txnCount === 0}
                   >
@@ -196,4 +224,3 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
     </div>
   );
 }
-

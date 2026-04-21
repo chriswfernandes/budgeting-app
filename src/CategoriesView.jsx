@@ -60,97 +60,101 @@ export default function CategoriesView({ categories, onSaveCategories }) {
 
   return (
     <div>
-      <div style={{ marginBottom:28 }}>
-        <h1 style={{ fontSize:26, fontWeight:500, marginBottom:4 }}>Categories</h1>
-        <p style={{ color:'var(--color-text-secondary)', fontSize:14 }}>Manage budget categories.</p>
+      <div className="mb-7">
+        <h1 className="text-[26px] font-medium mb-1">Categories</h1>
+        <p className="text-sm text-muted">Manage budget categories.</p>
       </div>
-      <div style={{ display:'grid', gridTemplateColumns:'280px 1fr', gap:20, alignItems: 'start' }}>
-        <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:16, position: 'sticky', top: 76 }}>
-          <p style={{ fontSize:11, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:16 }}>Create Category</p>
-          <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      <div className="grid grid-cols-[280px_1fr] gap-5 items-start">
+        <div className="card p-4 sticky top-[76px]">
+          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-4">Create Category</p>
+          <div className="flex flex-col gap-3">
             <div>
-              <label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Name:</label>
-              <input className="input-f" value={form.label} onChange={e => setForm({...form, label: e.target.value})} placeholder="e.g., Groceries" />
+              <label className="text-xs text-muted mb-1 block">Name:</label>
+              <input className="input-field" value={form.label} onChange={e => setForm({...form, label: e.target.value})} placeholder="e.g., Groceries" />
             </div>
             <div>
-              <label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Color:</label>
-              <div style={{ display:'flex', gap:8 }}>
-                <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})} style={{ width:40, height:34, border:'none', background:'none', cursor:'pointer' }} />
-                <input className="input-f" value={form.color} onChange={e => setForm({...form, color: e.target.value})} />
+              <label className="text-xs text-muted mb-1 block">Color:</label>
+              <div className="flex gap-2">
+                <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})} className="w-10 h-[34px] border-0 bg-transparent cursor-pointer" />
+                <input className="input-field" value={form.color} onChange={e => setForm({...form, color: e.target.value})} />
               </div>
             </div>
             <div>
-              <label style={{ fontSize:12, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Parent:</label>
-              <select className="input-f" value={form.parentId} onChange={e => setForm({...form, parentId: e.target.value})}>
+              <label className="text-xs text-muted mb-1 block">Parent:</label>
+              <select className="input-field" value={form.parentId} onChange={e => setForm({...form, parentId: e.target.value})}>
                 <option value="">None</option>
                 {parents.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
               </select>
             </div>
             {!form.parentId && (
-              <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4 }}>
-                <label className="switch" style={{ width:30, height:16 }}>
+              <div className="flex items-center gap-2 mt-1">
+                <label className="switch">
                   <input type="checkbox" checked={form.isIncome} onChange={e => setForm({...form, isIncome: e.target.checked})} />
-                  <span className="slider" style={{ borderRadius:16 }}></span>
+                  <span className="slider"></span>
                 </label>
-                <span style={{ fontSize:12, color:'var(--color-text-secondary)' }}>Is Income?</span>
+                <span className="text-xs text-muted">Is Income?</span>
               </div>
             )}
-            <div style={{ marginTop:8 }}>
-              <button className="btn-p" style={{ width:'100%' }} onClick={saveCategory}>Add Category</button>
+            <div className="mt-2">
+              <button className="btn-primary w-full" onClick={saveCategory}>Add Category</button>
             </div>
           </div>
         </div>
 
         <div>
-          <div style={{ padding: '8px 0', marginBottom: 12, position: 'sticky', top: 76, background: 'var(--color-background-tertiary)', zIndex: 5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{filteredCategories.length} cats</span>
-            <input className="input-f" style={{ maxWidth: 240, padding: '6px 12px', fontSize: 13 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="py-2 mb-3 sticky top-[76px] bg-bg z-[5] flex justify-between items-center gap-4">
+            <span className="text-[13px] text-muted">{filteredCategories.length} cats</span>
+            <input className="input-field" style={{ maxWidth: 240, padding: '6px 12px', fontSize: 13 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', overflow:'hidden' }}>
+          <div className="card overflow-hidden">
             {filteredParents.map((p) => {
               const children = categories.filter(c => c.parentId === p.id && (c.label.toLowerCase().includes(search.toLowerCase()) || p.label.toLowerCase().includes(search.toLowerCase())));
               const isEditingP = editingId === p.id;
               const isCollapsed = collapsedIds.has(p.id);
 
               return (
-                <div key={p.id} style={{ borderBottom: '0.5px solid var(--color-border-tertiary)' }}>
-                  <div className="txn-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px' }}>
-                    <button onClick={() => toggleCollapse(p.id)} style={{ background:'none', border:'none', color:'var(--color-text-secondary)', cursor:'pointer', padding:0, fontSize:10, width:16, display:'flex', alignItems:'center', justifyContent:'center', visibility: children.length > 0 ? 'visible' : 'hidden' }}>
+                <div key={p.id} className="border-b-[0.5px] border-border-subtle last:border-b-0">
+                  <div className="txn-row flex items-center gap-3 px-4 py-3">
+                    <button
+                      onClick={() => toggleCollapse(p.id)}
+                      className="bg-transparent border-0 text-muted cursor-pointer p-0 text-[10px] w-4 flex items-center justify-center"
+                      style={{ visibility: children.length > 0 ? 'visible' : 'hidden' }}
+                    >
                       {isCollapsed ? '▶' : '▼'}
                     </button>
                     {isEditingP ? (
-                      <div style={{ display:'flex', gap:8, alignItems:'center', flex:1 }}>
-                        <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} style={{ width:24, height:24, border:'none', background:'none' }} />
-                        <input className="input-f" style={{ flex:2, fontSize:13, padding:'4px 8px' }} value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} autoFocus />
-                        <label className="switch" style={{ width:24, height:14 }} title="Is Income?">
+                      <div className="flex gap-2 items-center flex-1">
+                        <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} className="w-6 h-6 border-0 bg-transparent" />
+                        <input className="input-field flex-[2] !text-[13px] !py-1 !px-2" value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} autoFocus />
+                        <label className="switch" title="Is Income?">
                           <input type="checkbox" checked={editForm.isIncome} onChange={e => setEditForm({...editForm, isIncome: e.target.checked})} />
                           <span className="slider"></span>
                         </label>
                       </div>
                     ) : (
                       <>
-                        <span style={{ width:12, height:12, borderRadius:'50%', background:p.color, display:'inline-block' }} />
-                        <div style={{ flex:1 }}>
-                          <div style={{ fontWeight:500, fontSize:14 }}>{p.label}</div>
+                        <span className="w-3 h-3 rounded-full inline-block" style={{ background: p.color }} />
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{p.label}</div>
                         </div>
                       </>
                     )}
-                    <div style={{ display:'flex', gap:8 }}>
+                    <div className="flex gap-2">
                       {isEditingP ? (
                         <>
-                          <button className="btn-p" style={{ padding:'4px 12px', fontSize:12 }} onClick={() => saveInlineEdit(p.id)}>Save</button>
-                          <button className="btn-g" style={{ padding:'4px 12px', fontSize:12 }} onClick={() => setEditingId(null)}>✕</button>
+                          <button className="btn-primary py-1 px-3 text-xs" onClick={() => saveInlineEdit(p.id)}>Save</button>
+                          <button className="btn-ghost py-1 px-3 text-xs" onClick={() => setEditingId(null)}>✕</button>
                         </>
                       ) : (
                         <>
-                          <button className="btn-g" style={{ padding:'4px 10px', fontSize:12 }} onClick={() => startInlineEdit(p)}>Edit</button>
+                          <button className="btn-ghost py-1 px-2.5 text-xs" onClick={() => startInlineEdit(p)}>Edit</button>
                           {confirmDeleteId === p.id ? (
                             <>
-                              <button className="btn-g" style={{ padding:'4px 10px', fontSize:12, color:'var(--color-text-danger)' }} onClick={() => del(p.id)}>Confirm</button>
-                              <button className="btn-g" style={{ padding:'4px 10px', fontSize:12 }} onClick={() => setConfirmDeleteId(null)}>✕</button>
+                              <button className="btn-ghost py-1 px-2.5 text-xs text-danger" onClick={() => del(p.id)}>Confirm</button>
+                              <button className="btn-ghost py-1 px-2.5 text-xs" onClick={() => setConfirmDeleteId(null)}>✕</button>
                             </>
                           ) : !SYSTEM_CATEGORY_IDS.includes(p.id) && (
-                            <button className="btn-g" style={{ padding:'4px 10px', fontSize:12, color:'var(--color-text-danger)' }} onClick={() => setConfirmDeleteId(p.id)}>✕</button>
+                            <button className="btn-ghost py-1 px-2.5 text-xs text-danger" onClick={() => setConfirmDeleteId(p.id)}>✕</button>
                           )}
                         </>
                       )}
@@ -160,40 +164,40 @@ export default function CategoriesView({ categories, onSaveCategories }) {
                   {!isCollapsed && children.map((c) => {
                     const isEditingC = editingId === c.id;
                     return (
-                      <div key={c.id} className="txn-row" style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 16px 10px 40px', background:'var(--color-background-secondary)', borderTop:'0.5px solid var(--color-border-tertiary)' }}>
+                      <div key={c.id} className="txn-row flex items-center gap-3 pl-10 pr-4 py-2.5 bg-raised border-t-[0.5px] border-border-subtle">
                         {isEditingC ? (
-                          <div style={{ display:'flex', gap:8, alignItems:'center', flex:1 }}>
-                            <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} style={{ width:20, height:20, border:'none', background:'none' }} />
-                            <input className="input-f" style={{ flex:2, fontSize:12, padding:'3px 6px' }} value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} autoFocus />
-                            <select className="input-f" style={{ flex:1, fontSize:12, padding:'3px 6px' }} value={editForm.parentId} onChange={e => setEditForm({...editForm, parentId: e.target.value})}>
+                          <div className="flex gap-2 items-center flex-1">
+                            <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} className="w-5 h-5 border-0 bg-transparent" />
+                            <input className="input-field flex-[2] !text-xs !py-[3px] !px-1.5" value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} autoFocus />
+                            <select className="input-field flex-1 !text-xs !py-[3px] !px-1.5" value={editForm.parentId} onChange={e => setEditForm({...editForm, parentId: e.target.value})}>
                               <option value="">None</option>
                               {parents.filter(par => par.id !== c.id).map(par => <option key={par.id} value={par.id}>{par.label}</option>)}
                             </select>
                           </div>
                         ) : (
                           <>
-                            <span style={{ width:8, height:8, borderRadius:'50%', background:c.color, display:'inline-block' }} />
-                            <div style={{ flex:1 }}>
-                              <div style={{ fontSize:13 }}>{c.label}</div>
+                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: c.color }} />
+                            <div className="flex-1">
+                              <div className="text-[13px]">{c.label}</div>
                             </div>
                           </>
                         )}
-                        <div style={{ display:'flex', gap:8 }}>
+                        <div className="flex gap-2">
                           {isEditingC ? (
                             <>
-                              <button className="btn-p" style={{ padding:'3px 10px', fontSize:11 }} onClick={() => saveInlineEdit(c.id)}>Save</button>
-                              <button className="btn-g" style={{ padding:'3px 10px', fontSize:11 }} onClick={() => setEditingId(null)}>✕</button>
+                              <button className="btn-primary py-[3px] px-2.5 text-[11px]" onClick={() => saveInlineEdit(c.id)}>Save</button>
+                              <button className="btn-ghost py-[3px] px-2.5 text-[11px]" onClick={() => setEditingId(null)}>✕</button>
                             </>
                           ) : (
                             <>
-                              <button className="btn-g" style={{ padding:'3px 8px', fontSize:11 }} onClick={() => startInlineEdit(c)}>Edit</button>
+                              <button className="btn-ghost py-[3px] px-2 text-[11px]" onClick={() => startInlineEdit(c)}>Edit</button>
                               {confirmDeleteId === c.id ? (
                                 <>
-                                  <button className="btn-g" style={{ padding:'3px 8px', fontSize:11, color:'var(--color-text-danger)' }} onClick={() => del(c.id)}>Confirm</button>
-                                  <button className="btn-g" style={{ padding:'3px 8px', fontSize:11 }} onClick={() => setConfirmDeleteId(null)}>✕</button>
+                                  <button className="btn-ghost py-[3px] px-2 text-[11px] text-danger" onClick={() => del(c.id)}>Confirm</button>
+                                  <button className="btn-ghost py-[3px] px-2 text-[11px]" onClick={() => setConfirmDeleteId(null)}>✕</button>
                                 </>
                               ) : !SYSTEM_CATEGORY_IDS.includes(c.id) && (
-                                <button className="btn-g" style={{ padding:'3px 8px', fontSize:11, color:'var(--color-text-danger)' }} onClick={() => setConfirmDeleteId(c.id)}>✕</button>
+                                <button className="btn-ghost py-[3px] px-2 text-[11px] text-danger" onClick={() => setConfirmDeleteId(c.id)}>✕</button>
                               )}
                             </>
                           )}

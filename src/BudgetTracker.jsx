@@ -141,64 +141,13 @@ function parseCSV(text, accountType = 'checking') {
 
 const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
 
-const S = `
-  :root {
-    --color-background-primary: #ffffff; --color-background-secondary: #f9f9f9; --color-background-tertiary: #f4f4f4;
-    --color-border-primary: #333333; --color-border-secondary: #cccccc; --color-border-tertiary: #eeeeee;
-    --color-text-primary: #111111; --color-text-secondary: #666666; --color-text-success: #2e7d32;
-    --color-text-danger: #d32f2f; --color-text-info: #0288d1; --color-background-success: #e8f5e9;
-    --color-background-danger: #ffebee; --color-background-info: #e1f5fe;
-    --border-radius-lg: 12px; --border-radius-md: 8px;
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-mono: "SF Mono", "Roboto Mono", monospace;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --color-background-primary: #1a1a1a; --color-background-secondary: #242424; --color-background-tertiary: #121212;
-      --color-border-primary: #ffffff; --color-border-secondary: #444444; --color-border-tertiary: #2a2a2a;
-      --color-text-primary: #eeeeee; --color-text-secondary: #aaaaaa; --color-text-success: #81c784;
-      --color-text-danger: #e57373; --color-text-info: #64b5f6; --color-background-success: #1b2e1c;
-      --color-background-danger: #3c1e1e; --color-background-info: #1a2e3e;
-    }
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--color-background-tertiary); }
-  .month-card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 16px; cursor: pointer; transition: border-color 0.15s; }
-  .month-card:hover { border-color: var(--color-border-secondary); }
-  .txn-row { transition: background 0.1s; }
-  .txn-row:hover { background: var(--color-background-secondary); }
-  .txn-row:hover .del-btn { opacity: 1; }
-  .del-btn { opacity: 0; background: none; border: none; color: var(--color-text-secondary); cursor: pointer; padding: 2px 6px; font-size: 13px; transition: opacity 0.1s; font-family: var(--font-sans); }
-  .cat-pill { cursor: pointer; border-radius: 8px; padding: 10px 14px; border: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); transition: border-color 0.1s, background 0.1s; font-size: 13px; font-family: var(--font-sans); text-align: left; color: var(--color-text-primary); display: flex; align-items: center; gap: 8px; }
-  .cat-pill:hover { border-color: var(--color-border-primary); background: var(--color-background-secondary); }
-  .input-f { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); color: var(--color-text-primary); border-radius: var(--border-radius-md); padding: 8px 12px; font-size: 14px; width: 100%; outline: none; font-family: var(--font-sans); }
-  .input-f:focus { border-color: var(--color-border-secondary); }
-  .btn-p { background: var(--color-text-primary); color: var(--color-background-primary); border: none; border-radius: var(--border-radius-md); padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; }
-  .btn-p:hover { opacity: 0.8; }
-  .btn-g { background: transparent; border: 0.5px solid var(--color-border-secondary); color: var(--color-text-primary); border-radius: var(--border-radius-md); padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: var(--font-sans); white-space: nowrap; }
-  .btn-g:hover { background: var(--color-background-secondary); }
-  .nav-tab { padding: 4px 10px; font-size: 13px; border-radius: 6px; border: 0.5px solid transparent; background: transparent; color: var(--color-text-secondary); cursor: pointer; font-family: var(--font-sans); transition: all 0.1s; }
-  .nav-tab.active { background: var(--color-background-secondary); border-color: var(--color-border-secondary); color: var(--color-text-primary); }
-  .cat-bar-row { cursor: pointer; transition: opacity 0.15s; margin-bottom: 14px; }
-  select.input-f option { background: var(--color-background-primary); color: var(--color-text-primary); }
-  .switch { position: relative; display: inline-block; width: 34px; height: 20px; }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--color-border-secondary); transition: .2s; border-radius: 20px; }
-  .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
-  input:checked + .slider { background-color: var(--color-text-primary); }
-  input:checked + .slider:before { transform: translateX(14px); }
-  .dropdown { position: relative; display: inline-block; }
-  .dropdown-content { display: none; position: absolute; right: 0; background-color: var(--color-background-primary); min-width: 160px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); z-index: 100; overflow: hidden; }
-  .dropdown-content button { color: var(--color-text-primary); padding: 10px 16px; text-decoration: none; display: block; border: none; background: none; width: 100%; text-align: left; cursor: pointer; font-size: 13px; font-family: var(--font-sans); }
-  .dropdown-content button:hover { background-color: var(--color-background-secondary); }
-  .dropdown:hover .dropdown-content { display: block; }
-`;
 
 export default function BudgetTracker() {
   const [years, setYears] = useState([]);
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(null);
   const [view, setView] = useState('overview');
+  const [monthNavExpanded, setMonthNavExpanded] = useState(false);
   const [txns, setTxns] = useState({});
   const [incomes, setIncomes] = useState({});
   const [rules, setRules]     = useState([]); 
@@ -494,35 +443,60 @@ export default function BudgetTracker() {
   const doAddYear = async () => { const y = parseInt(newYear); if (!y || years.includes(y)) return; const updated = [...years, y].sort(); setYears(updated); await store.set('budget-years', updated); setYear(y); setNewYear(''); setAddingYear(false); };
   const triggerImport = (type) => { setActiveImportAccount(type); setTimeout(() => fileRef.current?.click(), 0); };
 
-  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', color:'var(--color-text-secondary)', fontFamily:'var(--font-sans)', fontSize:14 }}>Loading...</div>;
+  if (loading) return <div className="flex items-center justify-center min-h-screen text-muted font-sans text-sm">Loading...</div>;
+
+  const showMonthList = view === 'month' || monthNavExpanded;
+  const goToMonth = (m) => { setMonth(m); setView('month'); setMonthNavExpanded(true); };
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--color-background-tertiary)', color:'var(--color-text-primary)', fontFamily:'var(--font-sans)' }}>
-      <style>{S}</style>
-      <div style={{ borderBottom:'0.5px solid var(--color-border-tertiary)', background:'var(--color-background-primary)', padding:'0 24px', display:'flex', alignItems:'center', justifyContent:'space-between', height:52, position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-          <span style={{ fontWeight:500, fontSize:15, letterSpacing:'-0.01em' }}>Budget</span>
-          <div style={{ display:'flex', gap:4 }}>
-            <button className={`nav-tab ${view === 'budget' ? 'active' : ''}`} onClick={() => { setView('budget'); setMonth(null); }}>Budget</button>
-            <button className={`nav-tab ${view === 'overview' ? 'active' : ''}`} onClick={() => { setView('overview'); setMonth(null); }}>Overview</button>
-            <button className={`nav-tab ${view === 'forecast' ? 'active' : ''}`} onClick={() => { setView('forecast'); setMonth(null); }}>Forecast</button>
-            <button className={`nav-tab ${view === 'scenarios' ? 'active' : ''}`} onClick={() => { setView('scenarios'); setMonth(null); }}>Scenarios</button>
-            {month !== null && <button className={`nav-tab ${view === 'month' ? 'active' : ''}`} onClick={() => setView('month')}>{MONTHS[month]}</button>}
-            <button className={`nav-tab ${view === 'rules' ? 'active' : ''}`} onClick={() => setView('rules')}>Rules</button>
-            <button className={`nav-tab ${view === 'categories' ? 'active' : ''}`} onClick={() => setView('categories')}>Categories</button>
-            {view === 'classify' && <button className="nav-tab active">Classify</button>}
+    <div className="h-screen flex flex-col bg-bg text-text font-sans overflow-hidden">
+      {/* HEADER */}
+      <div className="bg-surface border-b-[0.5px] border-border-subtle shrink-0 z-20">
+        <div className="flex items-center justify-between px-5 h-12">
+          <div className="flex items-center gap-1">
+            <button className="hdr-yr-btn" onClick={() => { const i = years.indexOf(year); if (i > 0) setYear(years[i-1]); }} disabled={years.indexOf(year) <= 0}>‹</button>
+            <span className="text-sm font-semibold min-w-[36px] text-center">{year}</span>
+            <button className="hdr-yr-btn" onClick={() => { const i = years.indexOf(year); if (i < years.length-1) setYear(years[i+1]); }} disabled={years.indexOf(year) >= years.length-1}>›</button>
+            {addingYear
+              ? <div className="flex gap-1 items-center ml-1">
+                  <input className="input-field !w-[60px] !px-1.5 !py-[3px] !text-xs" placeholder={String(new Date().getFullYear()+1)} value={newYear} onChange={e => setNewYear(e.target.value)} onKeyDown={e => e.key==='Enter' && doAddYear()} autoFocus />
+                  <button className="btn-primary !px-2 !py-[3px] !text-xs" onClick={doAddYear}>Add</button>
+                  <button className="btn-ghost !px-1.5 !py-[3px] !text-xs" onClick={() => setAddingYear(false)}>✕</button>
+                </div>
+              : <button className="hdr-yr-btn ml-1 border-dashed" onClick={() => setAddingYear(true)}>+</button>
+            }
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="dropdown"><button className="btn-primary">Import CSV</button><div className="dropdown-content"><button onClick={() => triggerImport('checking')}>Checking Account</button><button onClick={() => triggerImport('credit')}>Credit Card</button></div></div>
+            <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
           </div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          {years.map(y => <button key={y} onClick={() => setYear(y)} style={{ padding:'4px 10px', fontSize:13, borderRadius:6, background: y===year ? 'var(--color-background-secondary)' : 'transparent', border: y===year ? '0.5px solid var(--color-border-secondary)' : '0.5px solid transparent', color:'var(--color-text-primary)', cursor:'pointer', fontFamily:'var(--font-sans)' }}>{y}</button>)}
-          {addingYear ? <div style={{ display:'flex', gap:4, alignItems:'center' }}><input className="input-f" style={{ width:70, padding:'4px 8px', fontSize:13 }} placeholder={String(new Date().getFullYear()+1)} value={newYear} onChange={e => setNewYear(e.target.value)} onKeyDown={e => e.key==='Enter' && doAddYear()} autoFocus /><button className="btn-p" style={{ padding:'5px 10px', fontSize:12 }} onClick={doAddYear}>Add</button><button className="btn-g" style={{ padding:'5px 8px', fontSize:12 }} onClick={() => setAddingYear(false)}>X</button></div> : <button className="btn-g" style={{ padding:'4px 10px', fontSize:12, borderStyle:'dashed' }} onClick={() => setAddingYear(true)}>+ Year</button>}
-          <div className="dropdown"><button className="btn-p">Import CSV</button><div className="dropdown-content"><button onClick={() => triggerImport('checking')}>Checking Account</button><button onClick={() => triggerImport('credit')}>Credit Card</button></div></div>
-          <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display:'none' }} onChange={handleFile} />
-        </div>
       </div>
-      <div style={{ maxWidth:1100, margin:'0 auto', padding:'32px 24px' }}>
+      {/* BODY: sidebar + main */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* SIDEBAR */}
+        <nav className="w-[200px] shrink-0 bg-surface border-r-[0.5px] border-border-subtle py-3 px-2 flex flex-col gap-0.5 overflow-y-auto">
+          <div className="px-2.5 pt-2 pb-3 font-semibold text-sm tracking-[-0.01em] text-text">Views</div>
+          <button className={`sidebar-tab ${view==='overview'?'active':''}`}   onClick={() => { setView('overview');  setMonth(null); setMonthNavExpanded(false); }}>Overview</button>
+          <button className={`sidebar-tab ${view==='forecast'?'active':''}`}   onClick={() => { setView('forecast');  setMonth(null); setMonthNavExpanded(false); }}>Forecast</button>
+          <button className={`sidebar-tab ${view==='budget'?'active':''}`}     onClick={() => { setView('budget');    setMonth(null); setMonthNavExpanded(false); }}>Budget</button>
+          <button className={`sidebar-tab ${view==='scenarios'?'active':''}`}  onClick={() => { setView('scenarios'); setMonth(null); setMonthNavExpanded(false); }}>Scenarios</button>
+          {/* Month View — expandable */}
+          <button className={`sidebar-tab flex justify-between items-center ${view==='month'?'active':''}`} onClick={() => setMonthNavExpanded(v => !v)}>
+            <span>Month View</span>
+            <span className="text-[10px] opacity-60">{showMonthList ? '▾' : '›'}</span>
+          </button>
+          {showMonthList && MONTHS.map((name, i) => (
+            <button key={i} className={`sidebar-month-item${month === i && view === 'month' ? ' active' : ''}`} onClick={() => goToMonth(i)}>{name}</button>
+          ))}
+          <button className={`sidebar-tab ${view==='rules'?'active':''}`}      onClick={() => { setView('rules'); setMonthNavExpanded(false); }}>Rules</button>
+          <button className={`sidebar-tab ${view==='categories'?'active':''}`} onClick={() => { setView('categories'); setMonthNavExpanded(false); }}>Categories</button>
+          {view === 'classify' && <button className="sidebar-tab active">Classify</button>}
+        </nav>
+        {/* MAIN CONTENT */}
+        <main className="flex-1 overflow-y-auto py-8 px-6">
         {view === 'classify' && <ClassifyView queue={queue} idx={qIdx} categories={categories} onClassify={classify} onSkip={() => classify(queue[qIdx], null)} onDone={done} onSaveCategories={saveCategories} />}
-        {view === 'overview' && <OverviewView year={year} yearSummary={yearSummary} monthData={monthData} categories={categories} budgetEntries={budgetEntries} monthOverrides={monthOverrides} accountBalances={accountBalances} onSelectMonth={m => { setMonth(m); setView('month'); }} />}
+        {view === 'overview' && <OverviewView year={year} yearSummary={yearSummary} monthData={monthData} categories={categories} budgetEntries={budgetEntries} monthOverrides={monthOverrides} accountBalances={accountBalances} onSelectMonth={m => { setMonth(m); setView('month'); setMonthNavExpanded(true); }} />}
         {view === 'forecast' && (
           <ForecastView
             year={year}
@@ -534,7 +508,7 @@ export default function BudgetTracker() {
             allOverrides={monthOverrides}
             startingBalance={forecastStartBalances[year] ?? 0}
             onSaveBalance={amount => saveForecastStart(year, amount)}
-            onNavigateToMonth={(y, m) => { setYear(y); setMonth(m); setView('month'); }}
+            onNavigateToMonth={(y, m) => { setYear(y); setMonth(m); setView('month'); setMonthNavExpanded(true); }}
             latestAccountBalance={(() => {
               let latest = null;
               for (let m = 0; m < 12; m++) {
@@ -589,6 +563,7 @@ export default function BudgetTracker() {
             })()}
           />
         )}
+        </main>
       </div>
     </div>
   );

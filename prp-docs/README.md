@@ -25,6 +25,9 @@ Stack: React with hooks, inline CSS, no external UI libraries, no router
 | 15 | `PRP-15-income-categories-budget-tab.md` | ✅ Done | Add Income tab to Budget view for income categories; rename Sources tab | PRP-14 |
 | 16 | `PRP-16-recurrence-all-budget-items.md` | ✅ Done | Recurrence patterns for Outgoing + Income category tabs; projected expense transactions in MonthView | PRP-15 |
 | 17 | `PRP-17-numbers-consistency.md` | ✅ Done | Fix `resolveMonthBudget` full-date bug; Forecast includes income category entries; income categories in MonthView table | PRP-16 |
+| 18 | `PRP-18-ui-redesign-sidebar-header.md` | ✅ Done | Left sidebar nav; two-row top header with year selector + month carousel; Import CSV in header | — |
+| 18.5 | `PRP-18.5-month-view-sidebar.md` | ✅ Done | Month View moved to sidebar as expandable section; carousel removed from header | PRP-18 |
+| 20 | `PRP-20-sidebar-tab-order.md` | ✅ Done | Reorder sidebar tabs: Overview → Forecast → Budget → Scenarios | PRP-18 |
 | 05 | `PRP-05-month-view-plan-vs-actual.md` | 🔲 Not started | Categories above the fold in MonthView; plan vs. actual columns; collapsible transaction list | PRP-02, PRP-03 |
 | 06 | `PRP-06-annual-forecast.md` | 🔲 Not started | Annual Forecast tab: planned vs. actual per month, running projected balance, SVG chart | PRP-05 |
 | 07 | `PRP-07-account-balance-tracking.md` | 🔲 Not started | Parse balance column from checking CSVs; store per month; display in Overview, Month, Forecast | PRP-06 |

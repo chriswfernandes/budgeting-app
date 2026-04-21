@@ -4,32 +4,28 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
   const [showRuleBuilder, setShowRuleBuilder] = useState(false);
   const [selectedCatId, setSelectedCatId] = useState(null);
   const [showCategoryForm, setShowCategoryForm] = useState(false);
-  
-  // Rule form state
+
   const [ruleTrigger, setRuleTrigger] = useState('');
   const [ruleAmountThreshold, setRuleAmountThreshold] = useState('');
   const [ruleType, setRuleType] = useState('');
   const [createRule, setCreateRule] = useState(false);
 
-  // Category form state
   const [newCatLabel, setNewCatLabel] = useState('');
   const [newCatColor, setNewCatColor] = useState('#888888');
   const [newCatParentId, setNewCatParentId] = useState('');
   const [newCatIsIncome, setNewCatIsIncome] = useState(false);
 
-  const txn = queue[idx]; 
+  const txn = queue[idx];
   const pct = queue.length ? (idx / queue.length) * 100 : 0;
   const fmtLocal = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
 
-  // Reset states when transaction changes
   useEffect(() => {
     if (txn) {
       setShowRuleBuilder(false);
       setSelectedCatId(null);
-      // Simplified keyword extraction
       const keyword = txn.description
-        .replace(/\s*\*\*\*.*/, '') // Remove *** suffix
-        .replace(/\d{4,}/g, '') // Remove long numbers
+        .replace(/\s*\*\*\*.*/, '')
+        .replace(/\d{4,}/g, '')
         .trim();
       setRuleTrigger(keyword);
       setRuleAmountThreshold('');
@@ -39,10 +35,10 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
   }, [idx, txn]);
 
   if (!txn) return (
-    <div style={{ textAlign:'center', padding:'80px 0' }}>
-      <div style={{ width:48, height:48, borderRadius:'50%', background:'var(--color-background-success)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', color:'var(--color-text-success)', fontSize:22 }}>V</div>
-      <p style={{ fontSize:20, fontWeight:500, marginBottom:8 }}>All done</p>
-      <button className="btn-p" onClick={onDone}>View overview</button>
+    <div className="text-center py-20">
+      <div className="w-12 h-12 rounded-full bg-success-bg flex items-center justify-center mx-auto mb-4 text-success text-[22px]">✓</div>
+      <p className="text-xl font-medium mb-2">All done</p>
+      <button className="btn-primary" onClick={onDone}>View overview</button>
     </div>
   );
 
@@ -77,121 +73,126 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
   };
 
   return (
-    <div style={{ maxWidth:700, margin:'0 auto' }}>
-      <div style={{ marginBottom:28 }}>
-        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6, fontSize:13, color:'var(--color-text-secondary)' }}>
+    <div className="max-w-[700px] mx-auto">
+      <div className="mb-7">
+        <div className="flex justify-between mb-1.5 text-[13px] text-muted">
           <span>Classifying Transactions</span>
           <span>{idx + 1} of {queue.length}</span>
         </div>
-        <div style={{ height:3, background:'var(--color-background-secondary)', borderRadius:2 }}>
-          <div style={{ height:'100%', width:`${pct}%`, background:'var(--color-text-primary)', borderRadius:2, transition:'width 0.3s ease' }} />
+        <div className="h-[3px] bg-raised rounded-sm">
+          <div className="h-full bg-text rounded-sm transition-[width] duration-300" style={{ width: `${pct}%` }} />
         </div>
       </div>
 
-      <div style={{ background:'var(--color-background-primary)', border:'0.5px solid var(--color-border-tertiary)', borderRadius:'var(--border-radius-lg)', padding:'32px 28px', textAlign:'center', marginBottom:24 }}>
-        <div style={{ display:'flex', justifyContent:'center', gap:12, marginBottom:16 }}>
-          <div style={{ padding:'4px 10px', borderRadius:20, background:'var(--color-background-secondary)', fontSize:10, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+      <div className="card px-7 py-8 text-center mb-6">
+        <div className="flex justify-center gap-3 mb-4">
+          <div className="px-2.5 py-1 rounded-full bg-raised text-[10px] text-muted uppercase tracking-[0.05em]">
             {txn.date || 'No Date'}
           </div>
-          <div style={{ padding:'4px 10px', borderRadius:20, background: txn.type === 'income' ? 'var(--color-background-success)' : 'var(--color-background-secondary)', fontSize:10, color: txn.type === 'income' ? 'var(--color-text-success)' : 'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+          <div className={`px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.05em] ${txn.type === 'income' ? 'bg-success-bg text-success' : 'bg-raised text-muted'}`}>
             {txn.type === 'income' ? 'Money In' : 'Money Out'}
           </div>
-          <div style={{ padding:'4px 10px', borderRadius:20, background:'var(--color-background-secondary)', fontSize:10, color:'var(--color-text-secondary)', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+          <div className="px-2.5 py-1 rounded-full bg-raised text-[10px] text-muted uppercase tracking-[0.05em]">
             {txn.account} account
           </div>
         </div>
-        <p style={{ fontSize:20, fontWeight:500, marginBottom:14 }}>{txn.description}</p>
-        <p style={{ fontSize:34, fontWeight:400, fontFamily:'var(--font-mono)', color: txn.type === 'income' ? 'var(--color-text-success)' : 'var(--color-text-primary)' }}>
+        <p className="text-xl font-medium mb-3.5">{txn.description}</p>
+        <p className={`text-[34px] font-normal font-mono ${txn.type === 'income' ? 'text-success' : 'text-text'}`}>
           {txn.type === 'income' ? '+' : '-'}{fmtLocal(txn.amount)}
         </p>
       </div>
 
       {!showRuleBuilder ? (
         <>
-          <p style={{ fontSize:13, color:'var(--color-text-secondary)', marginBottom:12, fontWeight:500 }}>Select a category:</p>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3, 1fr)', gap:8, marginBottom:20 }}>
+          <p className="text-[13px] text-muted mb-3 font-medium">Select a category:</p>
+          <div className="grid grid-cols-3 gap-2 mb-5">
             {categories.map(c => (
-              <button key={c.id} className="cat-pill" onClick={() => handleSelectCategory(c.id)} style={{ padding: c.parentId ? '8px 12px 8px 24px' : '10px 14px' }}>
-                <span style={{ width:10, height:10, borderRadius:'50%', background:c.color, display:'inline-block', flexShrink:0 }} />
-                <span style={{ fontSize: c.parentId ? 12 : 13 }}>{c.label}</span>
+              <button
+                key={c.id}
+                className="cat-pill"
+                onClick={() => handleSelectCategory(c.id)}
+                style={{ padding: c.parentId ? '8px 12px 8px 24px' : '10px 14px' }}
+              >
+                <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: c.color }} />
+                <span className={c.parentId ? 'text-xs' : 'text-[13px]'}>{c.label}</span>
               </button>
             ))}
             {!showCategoryForm && (
-              <button className="cat-pill" style={{ borderStyle:'dashed', justifyContent:'center' }} onClick={() => setShowCategoryForm(true)}>
+              <button className="cat-pill border-dashed justify-center" onClick={() => setShowCategoryForm(true)}>
                 + New Category
               </button>
             )}
           </div>
 
           {showCategoryForm && (
-            <div style={{ background:'var(--color-background-secondary)', padding:20, borderRadius:12, marginBottom:24, border:'0.5px solid var(--color-border-secondary)' }}>
-              <p style={{ fontSize:12, fontWeight:600, textTransform:'uppercase', marginBottom:16 }}>Create New Category</p>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:12 }}>
+            <div className="bg-raised p-5 rounded-xl mb-6 border-[0.5px] border-border">
+              <p className="text-xs font-semibold uppercase mb-4">Create New Category</p>
+              <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label style={{ fontSize:11, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Label</label>
-                  <input className="input-f" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="e.g. Subscriptions" />
+                  <label className="text-[11px] text-muted mb-1 block">Label</label>
+                  <input className="input-field" value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)} placeholder="e.g. Subscriptions" />
                 </div>
                 <div>
-                  <label style={{ fontSize:11, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Color</label>
-                  <input className="input-f" type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} style={{ height:38, padding:4 }} />
+                  <label className="text-[11px] text-muted mb-1 block">Color</label>
+                  <input className="input-field !h-[38px] !p-1" type="color" value={newCatColor} onChange={e => setNewCatColor(e.target.value)} />
                 </div>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
+              <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                  <label style={{ fontSize:11, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Parent Category</label>
-                  <select className="input-f" value={newCatParentId} onChange={e => setNewCatParentId(e.target.value)}>
+                  <label className="text-[11px] text-muted mb-1 block">Parent Category</label>
+                  <select className="input-field" value={newCatParentId} onChange={e => setNewCatParentId(e.target.value)}>
                     <option value="">None (Top Level)</option>
                     {categories.filter(c => !c.parentId && !c.isIncome).map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                   </select>
                 </div>
-                <div style={{ display:'flex', alignItems:'center', gap:8, paddingTop:20 }}>
+                <div className="flex items-center gap-2 pt-5">
                   <label className="switch">
                     <input type="checkbox" checked={newCatIsIncome} onChange={e => setNewCatIsIncome(e.target.checked)} />
                     <span className="slider"></span>
                   </label>
-                  <span style={{ fontSize:12 }}>Income Category</span>
+                  <span className="text-xs">Income Category</span>
                 </div>
               </div>
-              <div style={{ display:'flex', gap:8 }}>
-                <button className="btn-p" onClick={handleAddCategory}>Create & Use</button>
-                <button className="btn-g" onClick={() => setShowCategoryForm(false)}>Cancel</button>
+              <div className="flex gap-2">
+                <button className="btn-primary" onClick={handleAddCategory}>Create & Use</button>
+                <button className="btn-ghost" onClick={() => setShowCategoryForm(false)}>Cancel</button>
               </div>
             </div>
           )}
         </>
       ) : (
-        <div style={{ background:'var(--color-background-primary)', border:'1px solid var(--color-text-primary)', borderRadius:'var(--border-radius-lg)', padding:24, marginBottom:24 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <span style={{ width:12, height:12, borderRadius:'50%', background: categories.find(c => c.id === selectedCatId)?.color }} />
-              <h3 style={{ fontSize:18, fontWeight:500 }}>{categories.find(c => c.id === selectedCatId)?.label}</h3>
+        <div className="card border-[0.5px] border-text p-6 mb-6">
+          <div className="flex justify-between items-center mb-5">
+            <div className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full inline-block" style={{ background: categories.find(c => c.id === selectedCatId)?.color }} />
+              <h3 className="text-lg font-medium">{categories.find(c => c.id === selectedCatId)?.label}</h3>
             </div>
-            <button className="btn-g" style={{ padding:'4px 8px', fontSize:11 }} onClick={() => setShowRuleBuilder(false)}>Change Category</button>
+            <button className="btn-ghost py-1 px-2 text-[11px]" onClick={() => setShowRuleBuilder(false)}>Change Category</button>
           </div>
 
-          <div style={{ marginBottom:20 }}>
-            <label style={{ display:'flex', alignItems:'center', gap:10, cursor:'pointer' }}>
+          <div className="mb-5">
+            <label className="flex items-center gap-2.5 cursor-pointer">
               <input type="checkbox" checked={createRule} onChange={e => setCreateRule(e.target.checked)} />
-              <span style={{ fontSize:14, fontWeight:500 }}>Create a rule for future transactions like this</span>
+              <span className="text-sm font-medium">Create a rule for future transactions like this</span>
             </label>
           </div>
 
           {createRule && (
-            <div style={{ padding:16, background:'var(--color-background-secondary)', borderRadius:8, marginBottom:20 }}>
-              <p style={{ fontSize:12, color:'var(--color-text-secondary)', textTransform:'uppercase', fontWeight:600, marginBottom:16 }}>Rule Conditions</p>
-              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+            <div className="p-4 bg-raised rounded-lg mb-5">
+              <p className="text-xs text-muted uppercase font-semibold mb-4">Rule Conditions</p>
+              <div className="flex flex-col gap-3">
                 <div>
-                  <label style={{ fontSize:11, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Description contains:</label>
-                  <input className="input-f" value={ruleTrigger} onChange={e => setRuleTrigger(e.target.value)} />
+                  <label className="text-[11px] text-muted mb-1 block">Description contains:</label>
+                  <input className="input-field" value={ruleTrigger} onChange={e => setRuleTrigger(e.target.value)} />
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label style={{ fontSize:11, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Amount is over:</label>
-                    <input className="input-f" type="number" value={ruleAmountThreshold} onChange={e => setRuleAmountThreshold(e.target.value)} placeholder="0.00" />
+                    <label className="text-[11px] text-muted mb-1 block">Amount is over:</label>
+                    <input className="input-field" type="number" value={ruleAmountThreshold} onChange={e => setRuleAmountThreshold(e.target.value)} placeholder="0.00" />
                   </div>
                   <div>
-                    <label style={{ fontSize:11, color:'var(--color-text-secondary)', marginBottom:4, display:'block' }}>Transaction type:</label>
-                    <select className="input-f" value={ruleType} onChange={e => setRuleType(e.target.value)}>
+                    <label className="text-[11px] text-muted mb-1 block">Transaction type:</label>
+                    <select className="input-field" value={ruleType} onChange={e => setRuleType(e.target.value)}>
                       <option value="">Any</option>
                       <option value="expense">Money Out (Expense)</option>
                       <option value="income">Money In (Income)</option>
@@ -202,19 +203,19 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
             </div>
           )}
 
-          <div style={{ display:'flex', gap:12 }}>
-            <button className="btn-p" style={{ flex:1, padding:12 }} onClick={() => handleConfirmClassify(createRule)}>
+          <div className="flex gap-3">
+            <button className="btn-primary flex-1 py-3" onClick={() => handleConfirmClassify(createRule)}>
               {createRule ? 'Save Rule & Classify' : 'Classify Once'}
             </button>
           </div>
         </div>
       )}
 
-      <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+      <div className="flex gap-2 justify-center">
         {!showRuleBuilder && (
           <>
-            <button className="btn-g" onClick={onSkip}>Skip</button>
-            <button className="btn-g" style={{ color:'var(--color-text-secondary)' }} onClick={onDone}>Stop</button>
+            <button className="btn-ghost" onClick={onSkip}>Skip</button>
+            <button className="btn-ghost" onClick={onDone}>Stop</button>
           </>
         )}
       </div>

@@ -475,7 +475,10 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
   // Outgoing tab state
   const [selectedCatId, setSelectedCatId] = useState(null);
 
-  // Income tab state
+  // Income categories tab state
+  const [selectedIncomeCatId, setSelectedIncomeCatId] = useState(null);
+
+  // Sources tab state
   const [selectedSourceId, setSelectedSourceId] = useState(null);
   const [isAddingSource, setIsAddingSource] = useState(false);
   const [newSourceLabel, setNewSourceLabel] = useState('');
@@ -520,7 +523,18 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
     return `${entries.length} ${entries.length === 1 ? 'period' : 'periods'}`;
   };
 
-  // ── Income helpers ────────────────────────────────────────────────────────
+  // ── Income category helpers ───────────────────────────────────────────────
+
+  const activeIncomeCatTotal = categories
+    .filter(c => isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id))
+    .reduce((sum, c) => {
+      const val = resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth);
+      return sum + (val || 0);
+    }, 0);
+
+  const selectedIncomeCat = categories.find(c => c.id === selectedIncomeCatId);
+
+  // ── Sources helpers ───────────────────────────────────────────────────────
 
   const getSourceEntries = (sourceId) => {
     const source = incomeSources.find(s => s.id === sourceId);
@@ -579,6 +593,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
   const selectedCat = categories.find(c => c.id === selectedCatId);
   const selectedSource = incomeSources.find(s => s.id === selectedSourceId);
 
+
   const sidebarStyle = {
     background: 'var(--color-background-primary)',
     border: '0.5px solid var(--color-border-tertiary)',
@@ -606,7 +621,8 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
       {/* Section Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '0.5px solid var(--color-border-tertiary)', paddingBottom: 12 }}>
         <button className={`nav-tab ${activeTab === 'outgoing' ? 'active' : ''}`} onClick={() => { setActiveTab('outgoing'); setSelectedCatId(null); }}>Outgoing</button>
-        <button className={`nav-tab ${activeTab === 'income' ? 'active' : ''}`} onClick={() => { setActiveTab('income'); setSelectedSourceId(null); }}>Income</button>
+        <button className={`nav-tab ${activeTab === 'income' ? 'active' : ''}`} onClick={() => { setActiveTab('income'); setSelectedIncomeCatId(null); }}>Income</button>
+        <button className={`nav-tab ${activeTab === 'sources' ? 'active' : ''}`} onClick={() => { setActiveTab('sources'); setSelectedSourceId(null); }}>Sources</button>
       </div>
 
       {/* ── Outgoing tab ── */}
@@ -657,6 +673,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
                   entries={getCatEntries(selectedCatId)}
                   onSave={entries => saveCatEntries(selectedCatId, entries)}
                   onDelete={entryId => deleteEntry(selectedCatId, entryId)}
+                  showRecurrence={true}
                 />
               </div>
             ) : (
@@ -668,8 +685,68 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
         </div>
       )}
 
-      {/* ── Income tab ── */}
+      {/* ── Income categories tab ── */}
       {activeTab === 'income' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
+          <div style={sidebarStyle}>
+            <p style={{ fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>Income Categories</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {categories.filter(c => isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id)).map(c => {
+                const display = getCatDisplayValue(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => setSelectedIncomeCatId(c.id)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '8px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: selectedIncomeCatId === c.id ? 'var(--color-background-secondary)' : 'transparent',
+                      color: 'var(--color-text-primary)', textAlign: 'left', fontSize: 13, fontFamily: 'var(--font-sans)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: c.color }} />
+                      <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
+                    </div>
+                    <span style={{ fontSize: 11, color: display ? 'var(--color-text-primary)' : 'var(--color-text-secondary)' }}>
+                      {display || 'No target'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '0.5px solid var(--color-border-tertiary)', display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Expected this month:</span>
+              <span style={{ fontWeight: 500, color: 'var(--color-text-success)' }}>{fmt(activeIncomeCatTotal)}</span>
+            </div>
+          </div>
+
+          <div style={panelStyle}>
+            {selectedIncomeCat ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: selectedIncomeCat.color }} />
+                  <h2 style={{ fontSize: 20, fontWeight: 500 }}>{selectedIncomeCat.label}</h2>
+                </div>
+                <EntryList
+                  key={selectedIncomeCatId}
+                  entries={getCatEntries(selectedIncomeCatId)}
+                  onSave={entries => saveCatEntries(selectedIncomeCatId, entries)}
+                  onDelete={entryId => deleteEntry(selectedIncomeCatId, entryId)}
+                  showRecurrence={true}
+                />
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-text-secondary)' }}>
+                <p>Select an income category to set expected monthly amounts.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Sources tab ── */}
+      {activeTab === 'sources' && (
         <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, alignItems: 'start' }}>
           <div style={sidebarStyle}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>

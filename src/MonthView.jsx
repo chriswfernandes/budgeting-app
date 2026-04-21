@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { resolveMonthBudget, getBudgetStatus, forecastSpend, resolveMonthIncome, expandIncomePeriod } from "./utils";
+import { resolveMonthBudget, getBudgetStatus, forecastSpend, resolveMonthIncome, expandIncomePeriod, expandRecurringEntry } from "./utils";
 
 export default function MonthView({
   year, month, data, categories, budgetEntries,
@@ -14,7 +14,7 @@ export default function MonthView({
   const [incInput, setIncInput] = useState((data.totalIncome - (data.list.filter(t => t.type === 'income').reduce((s,t) => s + t.amount, 0))).toString());
   const [editInc, setEditInc] = useState(false);
   const [editIncomeOverrides, setEditIncomeOverrides] = useState(false);
-  const [incomeViewMode, setIncomeViewMode] = useState('actual'); // 'actual' | 'projected' | 'combined'
+  const [txnViewMode, setTxnViewMode] = useState('actual'); // 'actual' | 'projected' | 'combined'
 
   // Projected income transactions for this month from recurrence-enabled entries
   const monthKey = `${year}-${String(month + 1).padStart(2, '0')}`;
@@ -41,6 +41,35 @@ export default function MonthView({
       )
     );
   }, [projectedIncomeTxns, data.list]);
+
+  // Projected transactions from budget category entries with recurrence (income + expense)
+  const projectedCatTxns = useMemo(() => {
+    const result = [];
+    for (const [catId, entries] of Object.entries(budgetEntries)) {
+      const cat = categories.find(c => c.id === catId);
+      if (!cat) continue;
+      const type = cat.isIncome ? 'income' : 'expense';
+      for (const entry of (entries || [])) {
+        if (entry.recurrence?.enabled) {
+          result.push(...expandRecurringEntry(
+            { id: catId, label: cat.label, category: catId, type },
+            entry, monthKey, monthKey
+          ));
+        }
+      }
+    }
+    return result;
+  }, [budgetEntries, categories, monthKey]);
+
+  const unfulfilledCatProjected = useMemo(() => {
+    return projectedCatTxns.filter(p =>
+      !data.list.some(t =>
+        t.date === p.date &&
+        t.category === p.category &&
+        Math.abs(t.amount - p.amount) <= 1
+      )
+    );
+  }, [projectedCatTxns, data.list]);
 
   // Category table state
   const [collapsedIds, setCollapsedIds] = useState(new Set());
@@ -71,6 +100,13 @@ export default function MonthView({
   const getRollupTotal = (catId) => {
     const childIds = categories.filter(c => c.parentId === catId).map(c => c.id);
     return data.list.filter(t => t.type === 'expense' && (t.category === catId || childIds.includes(t.category))).reduce((s, t) => s + t.amount, 0);
+  };
+
+  const getIncomeCatActual = (catId) => {
+    const childIds = categories.filter(c => c.parentId === catId).map(c => c.id);
+    return data.list
+      .filter(t => t.type === 'income' && (t.category === catId || childIds.includes(t.category)))
+      .reduce((s, t) => s + t.amount, 0);
   };
 
   const getTargetValue = (catId) => resolveMonthBudget(budgetEntries, monthOverrides, catId, year, month);
@@ -128,6 +164,7 @@ export default function MonthView({
   // ── Derived values ────────────────────────────────────────────────────────
 
   const parents = categories.filter(c => !c.parentId && !c.isIncome && !c.isCCPayment);
+  const incomeParents = categories.filter(c => !c.parentId && c.isIncome && !c.isCCPayment);
 
   const overBudgetCategories = categories.filter(c => {
     const spent = getRollupTotal(c.id);
@@ -168,18 +205,18 @@ export default function MonthView({
   const actualIncome = data.totalIncome;
   const incomeOnTrack = actualIncome >= plannedIncome;
 
-  // Build the base transaction list based on income view mode
+  const hasAnyProjected = projectedIncomeTxns.length > 0 || projectedCatTxns.length > 0;
+
+  // Build the base transaction list based on view mode
   const baseTxnList = useMemo(() => {
-    if (incomeViewMode === 'projected') {
-      // Show projected income txns alongside non-income actual txns
-      const nonIncome = data.list.filter(t => t.type !== 'income' && t.category !== 'income');
-      return [...nonIncome, ...projectedIncomeTxns];
+    if (txnViewMode === 'projected') {
+      return [...projectedIncomeTxns, ...projectedCatTxns];
     }
-    if (incomeViewMode === 'combined') {
-      return [...data.list, ...unfulfilledProjected];
+    if (txnViewMode === 'combined') {
+      return [...data.list, ...unfulfilledProjected, ...unfulfilledCatProjected];
     }
     return data.list;
-  }, [incomeViewMode, data.list, projectedIncomeTxns, unfulfilledProjected]);
+  }, [txnViewMode, data.list, projectedIncomeTxns, projectedCatTxns, unfulfilledProjected, unfulfilledCatProjected]);
 
   const filteredTxns = (filterCat
     ? baseTxnList.filter(t => t.category === filterCat || categories.find(c => c.id === t.category)?.parentId === filterCat)
@@ -330,15 +367,15 @@ export default function MonthView({
               {incomeOnTrack ? '✓ On track' : `✗ ${fmt(plannedIncome - actualIncome)} short`}
             </span>
           </>}
-          {projectedIncomeTxns.length > 0 && (
+          {hasAnyProjected && (
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
               {['actual','projected','combined'].map(mode => (
-                <button key={mode} onClick={() => setIncomeViewMode(mode)}
+                <button key={mode} onClick={() => setTxnViewMode(mode)}
                   style={{
                     padding: '3px 10px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: 'none',
                     fontFamily: 'var(--font-sans)', textTransform: 'capitalize',
-                    background: incomeViewMode === mode ? 'var(--color-text-primary)' : 'var(--color-background-secondary)',
-                    color: incomeViewMode === mode ? 'var(--color-background-primary)' : 'var(--color-text-secondary)',
+                    background: txnViewMode === mode ? 'var(--color-text-primary)' : 'var(--color-background-secondary)',
+                    color: txnViewMode === mode ? 'var(--color-background-primary)' : 'var(--color-text-secondary)',
                   }}>
                   {mode}
                 </button>
@@ -538,6 +575,105 @@ export default function MonthView({
                 <td style={{ padding: '11px 16px' }}></td>
               </tr>
             )}
+
+            {/* Income categories section */}
+            {incomeParents.some(p => {
+              const children = categories.filter(c => c.parentId === p.id);
+              return getIncomeCatActual(p.id) > 0 || getTargetValue(p.id) != null ||
+                children.some(c => getIncomeCatActual(c.id) > 0 || getTargetValue(c.id) != null);
+            }) && (
+              <>
+                <tr style={{ background: 'var(--color-background-tertiary)', borderTop: '0.5px solid var(--color-border-secondary)' }}>
+                  <td colSpan={5} style={{ padding: '6px 16px', fontSize: 11, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 500 }}>
+                    Income
+                  </td>
+                </tr>
+                {incomeParents.flatMap(p => {
+                  const children = categories.filter(c => c.parentId === p.id);
+                  const pActual = getIncomeCatActual(p.id);
+                  const pTarget = getTargetValue(p.id);
+                  const childrenHaveData = children.some(c => getIncomeCatActual(c.id) > 0 || getTargetValue(c.id) != null);
+                  if (pActual === 0 && pTarget == null && !childrenHaveData) return [];
+
+                  const pDiff = pTarget != null ? pActual - pTarget : null;
+                  const pStatusColor = pTarget == null ? 'var(--color-border-secondary)'
+                    : pActual >= pTarget ? 'var(--color-text-success)'
+                    : 'var(--color-text-danger)';
+                  const isFiltered = filterCat === p.id;
+
+                  const parentRow = (
+                    <tr key={p.id} onClick={() => setFilterCat(filterCat === p.id ? null : p.id)}
+                      style={{ borderBottom: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer',
+                        background: isFiltered ? 'var(--color-background-secondary)' : 'transparent',
+                        borderLeft: isFiltered ? '2px solid var(--color-border-primary)' : '2px solid transparent' }}>
+                      <td style={{ padding: '11px 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, display: 'inline-block', flexShrink: 0 }} />
+                          <span style={{ fontWeight: 500 }}>{p.label}</span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+                        {pTarget != null ? fmt(pTarget) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', color: pActual > 0 ? 'var(--color-text-success)' : 'var(--color-text-secondary)' }}>
+                        {pActual > 0 ? fmt(pActual) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '11px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                        {pDiff != null ? (
+                          <span style={{ color: pDiff >= 0 ? 'var(--color-text-success)' : 'var(--color-text-danger)', fontWeight: pDiff < 0 ? 500 : 400 }}>
+                            {pDiff >= 0 ? `+${fmt(pDiff)}` : `${fmt(pDiff)} short`}
+                          </span>
+                        ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                      </td>
+                      <td style={{ padding: '11px 16px', textAlign: 'center' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: pStatusColor, display: 'inline-block' }} />
+                      </td>
+                    </tr>
+                  );
+
+                  const childRows = children.map(c => {
+                    const cActual = getIncomeCatActual(c.id);
+                    const cTarget = getTargetValue(c.id);
+                    if (cActual === 0 && cTarget == null) return null;
+                    const cDiff = cTarget != null ? cActual - cTarget : null;
+                    const cStatusColor = cTarget == null ? 'var(--color-border-secondary)'
+                      : cActual >= cTarget ? 'var(--color-text-success)'
+                      : 'var(--color-text-danger)';
+                    return (
+                      <tr key={c.id} onClick={() => setFilterCat(filterCat === c.id ? null : c.id)}
+                        style={{ borderBottom: '0.5px solid var(--color-border-tertiary)', cursor: 'pointer',
+                          background: 'var(--color-background-secondary)',
+                          opacity: filterCat && filterCat !== c.id && filterCat !== p.id ? 0.5 : 1 }}>
+                        <td style={{ padding: '8px 16px 8px 38px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: c.color, display: 'inline-block', flexShrink: 0 }} />
+                            <span style={{ color: 'var(--color-text-secondary)', fontSize: 12 }}>{c.label}</span>
+                          </div>
+                        </td>
+                        <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          {cTarget != null ? fmt(cTarget) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12, color: cActual > 0 ? 'var(--color-text-success)' : 'var(--color-text-secondary)' }}>
+                          {cActual > 0 ? fmt(cActual) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 16px', textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 12 }}>
+                          {cDiff != null ? (
+                            <span style={{ color: cDiff >= 0 ? 'var(--color-text-success)' : 'var(--color-text-danger)' }}>
+                              {cDiff >= 0 ? `+${fmt(cDiff)}` : `${fmt(cDiff)} short`}
+                            </span>
+                          ) : <span style={{ color: 'var(--color-border-secondary)' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '8px 16px', textAlign: 'center' }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: cStatusColor, display: 'inline-block' }} />
+                        </td>
+                      </tr>
+                    );
+                  }).filter(Boolean);
+
+                  return [parentRow, ...childRows];
+                })}
+              </>
+            )}
           </tbody>
 
           {/* Total row */}
@@ -695,8 +831,8 @@ export default function MonthView({
                         )}
                       </div>
                       {!isEditingRow && (
-                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: (isProjected || t.type === 'income') ? 'var(--color-text-success)' : 'var(--color-text-primary)', flexShrink: 0 }}>
-                          {(isProjected || t.type === 'income') ? '+' : '-'}{fmt(t.amount)}
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 15, color: t.type === 'income' ? 'var(--color-text-success)' : 'var(--color-text-primary)', flexShrink: 0 }}>
+                          {t.type === 'income' ? '+' : '-'}{fmt(t.amount)}
                         </span>
                       )}
                       {!isProjected && (

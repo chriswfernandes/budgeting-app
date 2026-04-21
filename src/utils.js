@@ -3,9 +3,7 @@ export function resolveMonthBudget(budgetEntries, monthOverrides, categoryId, ye
   const entries = budgetEntries?.[categoryId] || [];
   if (!entries.length) return null;
   const key = `${year}-${String(month + 1).padStart(2, '0')}`;
-  const entry = entries.find(e =>
-    e.startDate <= key && (e.endDate === null || e.endDate >= key)
-  );
+  const entry = entries.find(e => _entryCoversMonth(e, key));
   return entry ? entry.amount : null;
 }
 
@@ -111,7 +109,14 @@ export function buildForecast(
       .filter(t => t.type === 'expense' && !isIncomeCat(categories, t.category) && !isCCPaymentCat(categories, t.category))
       .reduce((s, t) => s + t.amount, 0);
 
-    const plannedIncome = resolveMonthIncome(incomeSources, 0, adjustments, year, m);
+    const incomeFromSources = resolveMonthIncome(incomeSources, 0, adjustments, year, m);
+    const incomeFromCategories = categories
+      .filter(c => isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id))
+      .reduce((s, c) => {
+        const limit = resolveMonthBudget(budgetEntries, overrides, c.id, year, m);
+        return s + (limit ?? 0);
+      }, 0);
+    const plannedIncome = incomeFromSources + incomeFromCategories;
     // Sum only top-level (non-child) non-income categories to avoid double-counting
     const plannedExpenses = categories
       .filter(c => !c.parentId && !isIncomeCat(categories, c.id))
@@ -194,22 +199,16 @@ export function computeDerivedMonthlyAmount(rec, amountPerOcc) {
 }
 
 /**
- * Expand an income source entry into projected transactions for a view window.
+ * Generic recurring entry expander. Produces projected transactions for any
+ * budget item (expense category, income category, or income source).
  *
- * If entry.recurrence is null/disabled → one lump-sum per month (legacy behaviour).
- * If enabled → one entry per occurrence date anchored to period start.
- *
- * Biweekly anchor: first occurrence of the day-of-week on or after period.startDate;
- * subsequent dates are exactly interval×7 days apart (no calendar drift).
- * This ensures adjacent periods never duplicate or gap beyond the expected interval.
- *
- * @param {object} source   Income source object (needs .id, .label)
- * @param {object} entry    Income source entry (startDate, endDate, amount, recurrence)
+ * @param {{ id: string, label: string, category: string, type: 'income'|'expense' }} item
+ * @param {object} entry    Budget entry (startDate, endDate, amount, recurrence)
  * @param {string} viewStart  "YYYY-MM"
  * @param {string} viewEnd    "YYYY-MM"
  * @returns {ProjectedTransaction[]}
  */
-export function expandIncomePeriod(source, entry, viewStart, viewEnd) {
+export function expandRecurringEntry(item, entry, viewStart, viewEnd) {
   const rec = entry.recurrence;
   const periodStart = entry.startDate;
   const periodEnd = entry.endDate;
@@ -243,12 +242,13 @@ export function expandIncomePeriod(source, entry, viewStart, viewEnd) {
       results.push({
         date: `${y}-${String(m).padStart(2, '0')}-01`,
         amount: entry.amount,
-        label: source.label,
-        category: 'income',
+        label: item.label,
+        category: item.category,
+        type: item.type,
         isProjected: true,
         isLumpSum: true,
         periodId: entry.id,
-        sourceId: source.id,
+        sourceId: item.id,
       });
       m++;
       if (m > 12) { m = 1; y++; }
@@ -334,13 +334,22 @@ export function expandIncomePeriod(source, entry, viewStart, viewEnd) {
   return dates.map(date => ({
     date,
     amount: amountPerOcc,
-    label: source.label,
-    category: 'income',
+    label: item.label,
+    category: item.category,
+    type: item.type,
     isProjected: true,
     isLumpSum: false,
     periodId: entry.id,
-    sourceId: source.id,
+    sourceId: item.id,
   }));
+}
+
+/** Backward-compatible wrapper for income source expansion. */
+export function expandIncomePeriod(source, entry, viewStart, viewEnd) {
+  return expandRecurringEntry(
+    { id: source.id, label: source.label, category: 'income', type: 'income' },
+    entry, viewStart, viewEnd
+  );
 }
 
 export function projectScenario(

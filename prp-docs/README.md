@@ -22,6 +22,9 @@ Stack: React with hooks, inline CSS, no external UI libraries, no router
 | 12 | `PRP-12-double-counting-fix.md` | ✅ Done | Fix income source + txn income double-count; Re-apply rules button | PRP-11 |
 | 13 | `PRP-13-cc-payment-flag-migration.md` | ✅ Done | Fix missing isCCPayment flag in stored categories; re-apply rules cross-year; CategoriesView system guard | PRP-11, PRP-12 |
 | 14 | `PRP-14-budget-tab-filtering-and-categories-cleanup.md` | ✅ Done | Fix Outgoing tab showing income categories; remove dead Target field from CategoriesView | PRP-13 |
+| 15 | `PRP-15-income-categories-budget-tab.md` | ✅ Done | Add Income tab to Budget view for income categories; rename Sources tab | PRP-14 |
+| 16 | `PRP-16-recurrence-all-budget-items.md` | ✅ Done | Recurrence patterns for Outgoing + Income category tabs; projected expense transactions in MonthView | PRP-15 |
+| 17 | `PRP-17-numbers-consistency.md` | ✅ Done | Fix `resolveMonthBudget` full-date bug; Forecast includes income category entries; income categories in MonthView table | PRP-16 |
 | 05 | `PRP-05-month-view-plan-vs-actual.md` | 🔲 Not started | Categories above the fold in MonthView; plan vs. actual columns; collapsible transaction list | PRP-02, PRP-03 |
 | 06 | `PRP-06-annual-forecast.md` | 🔲 Not started | Annual Forecast tab: planned vs. actual per month, running projected balance, SVG chart | PRP-05 |
 | 07 | `PRP-07-account-balance-tracking.md` | 🔲 Not started | Parse balance column from checking CSVs; store per month; display in Overview, Month, Forecast | PRP-06 |

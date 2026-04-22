@@ -28,6 +28,13 @@ Stack: React with hooks, inline CSS, no external UI libraries, no router
 | 18 | `PRP-18-ui-redesign-sidebar-header.md` | ✅ Done | Left sidebar nav; two-row top header with year selector + month carousel; Import CSV in header | — |
 | 18.5 | `PRP-18.5-month-view-sidebar.md` | ✅ Done | Month View moved to sidebar as expandable section; carousel removed from header | PRP-18 |
 | 20 | `PRP-20-sidebar-tab-order.md` | ✅ Done | Reorder sidebar tabs: Overview → Forecast → Budget → Scenarios | PRP-18 |
+| 21 | `PRP-21-design-system-shell.md` | 🔲 Not started | New color tokens (emerald), Inter font, card shadows, top nav + settings shell, month sub-nav | PRP-19, PRP-20 |
+| 22 | `PRP-22-overview-redesign.md` | ✅ Done | Hero KPIs with sparklines, Recharts stacked bar chart, month card refresh | PRP-21 |
+| 23 | `PRP-23-month-view-redesign.md` | ✅ Done | Hero KPIs, horizontal category spend bar chart (Recharts) | PRP-21, PRP-22 |
+| 24 | `PRP-24-forecast-redesign.md` | ✅ Done | Replace SVG chart with Recharts AreaChart (solid actual, dashed projected) | PRP-21, PRP-22 |
+| 25 | `PRP-25-budget-redesign.md` | ✅ Done | Category amount badges, donut chart showing budget allocation slice | PRP-21, PRP-22 |
+| 26 | `PRP-26-scenarios-redesign.md` | ✅ Done | Card refresh, multi-scenario comparison chart, projection AreaChart | PRP-21, PRP-22 |
+| 27 | `PRP-27-settings-shell.md` | ✅ Done | Settings shell nav, Classify progress bar, RulesView/CategoriesView polish | PRP-21 |
 | 05 | `PRP-05-month-view-plan-vs-actual.md` | 🔲 Not started | Categories above the fold in MonthView; plan vs. actual columns; collapsible transaction list | PRP-02, PRP-03 |
 | 06 | `PRP-06-annual-forecast.md` | 🔲 Not started | Annual Forecast tab: planned vs. actual per month, running projected balance, SVG chart | PRP-05 |
 | 07 | `PRP-07-account-balance-tracking.md` | 🔲 Not started | Parse balance column from checking CSVs; store per month; display in Overview, Month, Forecast | PRP-06 |

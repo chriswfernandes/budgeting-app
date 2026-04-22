@@ -75,12 +75,12 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
   return (
     <div className="max-w-[700px] mx-auto">
       <div className="mb-7">
-        <div className="flex justify-between mb-1.5 text-[13px] text-muted">
-          <span>Classifying Transactions</span>
-          <span>{idx + 1} of {queue.length}</span>
+        <div className="flex justify-between mb-2 text-sm text-muted">
+          <span>{idx} of {queue.length} classified</span>
+          <span>{queue.length - idx} remaining</span>
         </div>
-        <div className="h-[3px] bg-raised rounded-sm">
-          <div className="h-full bg-text rounded-sm transition-[width] duration-300" style={{ width: `${pct}%` }} />
+        <div className="h-1.5 bg-raised rounded-full overflow-hidden">
+          <div className="h-full bg-accent rounded-full transition-[width] duration-300" style={{ width: `${pct}%` }} />
         </div>
       </div>
 
@@ -97,7 +97,7 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
           </div>
         </div>
         <p className="text-xl font-medium mb-3.5">{txn.description}</p>
-        <p className={`text-[34px] font-normal font-mono ${txn.type === 'income' ? 'text-success' : 'text-text'}`}>
+        <p className={`text-[40px] font-semibold font-mono leading-none ${txn.type === 'income' ? 'text-success' : 'text-text'}`}>
           {txn.type === 'income' ? '+' : '-'}{fmtLocal(txn.amount)}
         </p>
       </div>
@@ -111,7 +111,7 @@ export default function ClassifyView({ queue, idx, categories, onClassify, onSki
                 key={c.id}
                 className="cat-pill"
                 onClick={() => handleSelectCategory(c.id)}
-                style={{ padding: c.parentId ? '8px 12px 8px 24px' : '10px 14px' }}
+                style={{ padding: c.parentId ? '9px 14px 9px 26px' : '11px 16px' }}
               >
                 <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ background: c.color }} />
                 <span className={c.parentId ? 'text-xs' : 'text-[13px]'}>{c.label}</span>

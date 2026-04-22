@@ -61,12 +61,12 @@ export default function CategoriesView({ categories, onSaveCategories }) {
   return (
     <div>
       <div className="mb-7">
-        <h1 className="text-[26px] font-medium mb-1">Categories</h1>
+        <h1 className="text-[28px] font-semibold mb-1">Categories</h1>
         <p className="text-sm text-muted">Manage budget categories.</p>
       </div>
       <div className="grid grid-cols-[280px_1fr] gap-5 items-start">
         <div className="card p-4 sticky top-[76px]">
-          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-4">Create Category</p>
+          <p className="text-xs text-muted mb-4">Create Category</p>
           <div className="flex flex-col gap-3">
             <div>
               <label className="text-xs text-muted mb-1 block">Name:</label>
@@ -74,8 +74,11 @@ export default function CategoriesView({ categories, onSaveCategories }) {
             </div>
             <div>
               <label className="text-xs text-muted mb-1 block">Color:</label>
-              <div className="flex gap-2">
-                <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})} className="w-10 h-[34px] border-0 bg-transparent cursor-pointer" />
+              <div className="flex items-center gap-2">
+                <div className="relative shrink-0">
+                  <span className="w-7 h-7 rounded-full inline-block border-[0.5px] border-border-subtle" style={{ background: form.color }} />
+                  <input type="color" value={form.color} onChange={e => setForm({...form, color: e.target.value})} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                </div>
                 <input className="input-field" value={form.color} onChange={e => setForm({...form, color: e.target.value})} />
               </div>
             </div>
@@ -124,7 +127,10 @@ export default function CategoriesView({ categories, onSaveCategories }) {
                     </button>
                     {isEditingP ? (
                       <div className="flex gap-2 items-center flex-1">
-                        <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} className="w-6 h-6 border-0 bg-transparent" />
+                        <div className="relative shrink-0">
+                          <span className="w-6 h-6 rounded-full inline-block border-[0.5px] border-border-subtle" style={{ background: editForm.color }} />
+                          <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                        </div>
                         <input className="input-field flex-[2] !text-[13px] !py-1 !px-2" value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} autoFocus />
                         <label className="switch" title="Is Income?">
                           <input type="checkbox" checked={editForm.isIncome} onChange={e => setEditForm({...editForm, isIncome: e.target.checked})} />
@@ -164,10 +170,13 @@ export default function CategoriesView({ categories, onSaveCategories }) {
                   {!isCollapsed && children.map((c) => {
                     const isEditingC = editingId === c.id;
                     return (
-                      <div key={c.id} className="txn-row flex items-center gap-3 pl-10 pr-4 py-2.5 bg-raised border-t-[0.5px] border-border-subtle">
+                      <div key={c.id} className="txn-row flex items-center gap-3 pl-10 pr-4 py-3 bg-raised border-t-[0.5px] border-border-subtle">
                         {isEditingC ? (
                           <div className="flex gap-2 items-center flex-1">
-                            <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} className="w-5 h-5 border-0 bg-transparent" />
+                            <div className="relative shrink-0">
+                              <span className="w-5 h-5 rounded-full inline-block border-[0.5px] border-border-subtle" style={{ background: editForm.color }} />
+                              <input type="color" value={editForm.color} onChange={e => setEditForm({...editForm, color: e.target.value})} className="absolute inset-0 opacity-0 w-full h-full cursor-pointer" />
+                            </div>
                             <input className="input-field flex-[2] !text-xs !py-[3px] !px-1.5" value={editForm.label} onChange={e => setEditForm({...editForm, label: e.target.value})} autoFocus />
                             <select className="input-field flex-1 !text-xs !py-[3px] !px-1.5" value={editForm.parentId} onChange={e => setEditForm({...editForm, parentId: e.target.value})}>
                               <option value="">None</option>

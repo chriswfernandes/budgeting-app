@@ -1,5 +1,22 @@
 import { useState, useMemo } from "react";
 import { resolveMonthBudget, getBudgetStatus, forecastSpend, resolveMonthIncome, expandIncomePeriod, expandRecurringEntry } from "./utils";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
+const fmtCompact = n => { const a = Math.abs(n); if (a >= 10000) return `$${(a/1000).toFixed(0)}K`; if (a >= 1000) return `$${(a/1000).toFixed(1)}K`; return fmt(n); };
+
+function CatTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  const spend = payload.find(p => p.dataKey === 'spend')?.value || 0;
+  const budget = payload.find(p => p.dataKey === 'budget')?.value;
+  return (
+    <div className="card px-3 py-2 text-xs" style={{ pointerEvents: 'none', zIndex: 50 }}>
+      <p className="font-semibold mb-1">{label}</p>
+      <p className="text-danger">Spent: {fmt(spend)}</p>
+      {budget != null && <p className="text-muted">Budget: {fmt(budget)}</p>}
+    </div>
+  );
+}
 
 export default function MonthView({
   year, month, data, categories, budgetEntries,
@@ -82,8 +99,6 @@ export default function MonthView({
 
   const [overridesExpanded, setOverridesExpanded] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
-
-  const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
 
   const getRollupTotal = (catId) => {
     const childIds = categories.filter(c => c.parentId === catId).map(c => c.id);
@@ -211,6 +226,11 @@ export default function MonthView({
   const uncatTotal = data.list.filter(t => !t.category && t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const ccPaymentTotal = data.list.filter(t => t.category === 'cc-payment' || categories.find(c => c.id === t.category)?.isCCPayment).reduce((s, t) => s + t.amount, 0);
 
+  const catChartData = [...parents]
+    .map(p => ({ name: p.label, color: p.color, id: p.id, spend: getRollupTotal(p.id), budget: getTargetValue(p.id) }))
+    .filter(d => d.spend > 0)
+    .sort((a, b) => b.spend - a.spend);
+
   const StatusDot = ({ status }) => {
     const dotColor = status === 'over' ? 'var(--color-danger)'
       : status === 'warning' ? 'var(--color-warning)'
@@ -224,7 +244,7 @@ export default function MonthView({
   return (
     <div>
       <div className="mb-7">
-        <h1 className="text-[26px] font-medium mb-1">{MONTHS[month]} {year}</h1>
+        <h1 className="text-[28px] font-semibold mb-1">{MONTHS[month]} {year}</h1>
       </div>
 
       {forecastWarnings.length > 0 && (
@@ -239,9 +259,9 @@ export default function MonthView({
       )}
 
       <div className={`grid ${overBudgetCategories.length > 0 ? 'grid-cols-4' : 'grid-cols-3'} gap-3 mb-7`}>
-        <div className="card px-5 py-4">
-          <div className="flex justify-between mb-2.5">
-            <p className="text-[11px] text-muted uppercase tracking-[0.06em]">Income</p>
+        <div className="card px-5 py-5">
+          <div className="flex justify-between mb-3">
+            <p className="text-xs text-muted">Income</p>
             {incomeSources.length > 0 ? (
               <button onClick={() => setEditIncomeOverrides(!editIncomeOverrides)} className="bg-transparent border-0 text-muted cursor-pointer text-xs">
                 {editIncomeOverrides ? 'Close' : 'Edit overrides ▾'}
@@ -274,7 +294,7 @@ export default function MonthView({
               </div>
             ) : (
               <>
-                <p className="text-[26px] font-medium font-mono text-success">{fmt(data.totalIncome)}</p>
+                <p className="text-[38px] font-semibold font-mono leading-none text-success">{fmt(data.totalIncome)}</p>
                 <div className="mt-2 pt-2 border-t-[0.5px] border-border-subtle">
                   {incomeSources.filter(s => s.active).map(s => {
                     const adj = incomeAdjustments.find(a => a.sourceId === s.id);
@@ -291,26 +311,26 @@ export default function MonthView({
           ) : (
             editInc
               ? <div className="flex gap-1.5"><input className="input-field" value={incInput} onChange={e => setIncInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && saveInc()} autoFocus /><button className="btn-primary py-1.5 px-2.5" onClick={saveInc}>Save</button></div>
-              : <p className="text-[26px] font-medium font-mono text-success">{fmt(data.totalIncome)}</p>
+              : <p className="text-[38px] font-semibold font-mono leading-none text-success">{fmt(data.totalIncome)}</p>
           )}
         </div>
 
-        <div className="card px-5 py-4">
-          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-2.5">Expenses</p>
-          <p className="text-[26px] font-medium font-mono text-danger">-{fmt(data.expenses)}</p>
+        <div className="card px-5 py-5">
+          <p className="text-xs text-muted mb-3">Expenses</p>
+          <p className="text-[38px] font-semibold font-mono leading-none text-danger">-{fmt(data.expenses)}</p>
         </div>
 
-        <div className="card px-5 py-4">
-          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-2.5">Net</p>
-          <p className={`text-[26px] font-medium font-mono ${data.net >= 0 ? 'text-success' : 'text-danger'}`}>
+        <div className="card px-5 py-5">
+          <p className="text-xs text-muted mb-3">Net</p>
+          <p className={`text-[38px] font-semibold font-mono leading-none ${data.net >= 0 ? 'text-success' : 'text-danger'}`}>
             {data.net >= 0 ? '+' : '-'}{fmt(data.net)}
           </p>
         </div>
 
         {overBudgetCategories.length > 0 && (
           <div className="bg-danger-bg border-[0.5px] border-danger rounded-lg px-5 py-4">
-            <p className="text-[11px] text-danger uppercase tracking-[0.06em] mb-2.5">Over budget</p>
-            <p className="text-[26px] font-medium text-danger">{overBudgetCategories.length} {overBudgetCategories.length === 1 ? 'category' : 'categories'}</p>
+            <p className="text-xs text-danger mb-3">Over budget</p>
+            <p className="text-[38px] font-semibold leading-none text-danger">{overBudgetCategories.length} {overBudgetCategories.length === 1 ? 'category' : 'categories'}</p>
             <p className="text-xs text-danger mt-1 overflow-hidden text-ellipsis whitespace-nowrap">
               {overBudgetCategories.map(c => c.label).join(', ')}
             </p>
@@ -358,6 +378,28 @@ export default function MonthView({
           </div>
         );
       })()}
+
+      {catChartData.length > 0 && (
+        <div className="card px-5 pt-5 pb-4 mb-5">
+          <p className="text-xs text-muted mb-4">Category Spend</p>
+          <ResponsiveContainer width="100%" height={Math.max(catChartData.length * 36, 80)}>
+            <BarChart data={catChartData} layout="vertical" barSize={12} margin={{ left: 0, right: 60, top: 0, bottom: 0 }}>
+              <XAxis type="number" hide />
+              <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12, fill: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CatTooltip />} cursor={{ fill: 'var(--color-raised)' }} />
+              {catChartData.some(d => d.budget != null) && (
+                <Bar dataKey="budget" fill="var(--color-raised)" radius={[0,3,3,0]} isAnimationActive={false} background={{ fill: 'transparent' }}>
+                  {catChartData.map((d, i) => <Cell key={i} fill="var(--color-border-subtle)" />)}
+                </Bar>
+              )}
+              <Bar dataKey="spend" radius={[0,3,3,0]} isAnimationActive={false}
+                label={{ position: 'right', formatter: v => fmtCompact(v), fontSize: 11, fill: 'var(--color-muted)', fontFamily: 'var(--font-sans)' }}>
+                {catChartData.map((d, i) => <Cell key={i} fill={d.color} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
 
       <div className="card mb-4 overflow-hidden">
         <table className="w-full border-collapse text-[13px]">

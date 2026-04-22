@@ -67,12 +67,12 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
   return (
     <div>
       <div className="mb-7">
-        <h1 className="text-[26px] font-medium mb-1">Rules</h1>
+        <h1 className="text-[28px] font-semibold mb-1">Rules</h1>
         <p className="text-sm text-muted">Manage categorization rules.</p>
       </div>
       <div className="grid grid-cols-[280px_1fr] gap-5 items-start">
         <div className="card p-4 sticky top-[76px]">
-          <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-4">Create Rule</p>
+          <p className="text-xs text-muted mb-4">Create Rule</p>
           <div className="flex flex-col gap-3">
             <div>
               <label className="text-xs text-muted mb-1 block">Contains:</label>
@@ -151,7 +151,7 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
                         <div className="flex items-center gap-3 text-xs text-muted mt-0.5">
                           <div className="flex items-center gap-1.5">
                             <span>↳</span>
-                            <span className="w-2 h-2 rounded-full inline-block" style={{ background: c?.color || '#888' }} />
+                            <span className="w-3 h-3 rounded-full inline-block shrink-0" style={{ background: c?.color || '#888' }} />
                             {c?.label || 'Unknown'}
                           </div>
                           {(r.amountThreshold || r.type) && (
@@ -183,7 +183,7 @@ export default function RulesView({ rules, categories, onSaveRules, onReapplyRul
           </div>
 
           <div className="card p-4 mt-6">
-            <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-3">Bulk actions</p>
+            <p className="text-xs text-muted mb-3">Bulk actions</p>
             <div className="flex items-center gap-3 flex-wrap">
               {reapplyResult !== null ? (
                 <span className="text-[13px] text-success">

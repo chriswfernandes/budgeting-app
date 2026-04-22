@@ -147,7 +147,7 @@ export default function BudgetTracker() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(null);
   const [view, setView] = useState('overview');
-  const [monthNavExpanded, setMonthNavExpanded] = useState(false);
+  const [prevMainView, setPrevMainView] = useState('overview');
   const [txns, setTxns] = useState({});
   const [incomes, setIncomes] = useState({});
   const [rules, setRules]     = useState([]); 
@@ -445,126 +445,189 @@ export default function BudgetTracker() {
 
   if (loading) return <div className="flex items-center justify-center min-h-screen text-muted font-sans text-sm">Loading...</div>;
 
-  const showMonthList = view === 'month' || monthNavExpanded;
-  const goToMonth = (m) => { setMonth(m); setView('month'); setMonthNavExpanded(true); };
+  const inSettings = ['rules', 'categories', 'classify'].includes(view);
+  const goToMonth = (m) => { setMonth(m); setView('month'); };
+  const goToSettings = () => {
+    if (!['rules', 'categories', 'classify'].includes(view)) setPrevMainView(view);
+    setView('rules');
+  };
+  const backFromSettings = () => setView(prevMainView);
 
   return (
     <div className="h-screen flex flex-col bg-bg text-text font-sans overflow-hidden">
-      {/* HEADER */}
-      <div className="bg-surface border-b-[0.5px] border-border-subtle shrink-0 z-20">
-        <div className="flex items-center justify-between px-5 h-12">
-          <div className="flex items-center gap-1">
-            <button className="hdr-yr-btn" onClick={() => { const i = years.indexOf(year); if (i > 0) setYear(years[i-1]); }} disabled={years.indexOf(year) <= 0}>‹</button>
-            <span className="text-sm font-semibold min-w-[36px] text-center">{year}</span>
-            <button className="hdr-yr-btn" onClick={() => { const i = years.indexOf(year); if (i < years.length-1) setYear(years[i+1]); }} disabled={years.indexOf(year) >= years.length-1}>›</button>
-            {addingYear
-              ? <div className="flex gap-1 items-center ml-1">
-                  <input className="input-field !w-[60px] !px-1.5 !py-[3px] !text-xs" placeholder={String(new Date().getFullYear()+1)} value={newYear} onChange={e => setNewYear(e.target.value)} onKeyDown={e => e.key==='Enter' && doAddYear()} autoFocus />
-                  <button className="btn-primary !px-2 !py-[3px] !text-xs" onClick={doAddYear}>Add</button>
-                  <button className="btn-ghost !px-1.5 !py-[3px] !text-xs" onClick={() => setAddingYear(false)}>✕</button>
+
+      {/* TOP BAR */}
+      <header
+        className={`shrink-0 z-20 border-b-[0.5px] border-border-subtle ${inSettings ? 'bg-raised' : 'bg-surface'}`}
+        style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+      >
+        <div className="h-14 flex items-center px-5 gap-4">
+
+          {/* Left: logo + year selector OR back button */}
+          {inSettings ? (
+            <button onClick={backFromSettings}
+              className="flex items-center gap-1.5 text-sm text-muted hover:text-text transition-colors cursor-pointer bg-transparent border-0 font-sans whitespace-nowrap shrink-0">
+              ← Back
+            </button>
+          ) : (
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="font-semibold text-[15px] flex items-center gap-1.5 select-none">
+                <span className="text-accent">●</span>Budget
+              </span>
+              <div className="flex items-center gap-0.5">
+                <button className="hdr-yr-btn" onClick={() => { const i = years.indexOf(year); if (i > 0) setYear(years[i-1]); }} disabled={years.indexOf(year) <= 0}>‹</button>
+                <span className="text-sm font-semibold min-w-[36px] text-center">{year}</span>
+                <button className="hdr-yr-btn" onClick={() => { const i = years.indexOf(year); if (i < years.length-1) setYear(years[i+1]); }} disabled={years.indexOf(year) >= years.length-1}>›</button>
+                {addingYear
+                  ? <div className="flex gap-1 items-center ml-1">
+                      <input className="input-field !w-[60px] !px-1.5 !py-[3px] !text-xs" placeholder={String(new Date().getFullYear()+1)} value={newYear} onChange={e => setNewYear(e.target.value)} onKeyDown={e => e.key==='Enter' && doAddYear()} autoFocus />
+                      <button className="btn-primary !px-2 !py-[3px] !text-xs" onClick={doAddYear}>Add</button>
+                      <button className="btn-ghost !px-1.5 !py-[3px] !text-xs" onClick={() => setAddingYear(false)}>✕</button>
+                    </div>
+                  : <button className="hdr-yr-btn ml-1 border-dashed" onClick={() => setAddingYear(true)}>+</button>
+                }
+              </div>
+            </div>
+          )}
+
+          {/* Center: primary nav OR settings nav */}
+          <div className="flex-1 flex items-center justify-center gap-0.5">
+            {inSettings ? (
+              <>
+                <button className={`top-nav-tab ${view==='rules'?'active':''}`} onClick={() => setView('rules')}>Rules</button>
+                <button className={`top-nav-tab ${view==='categories'?'active':''}`} onClick={() => setView('categories')}>Categories</button>
+                {view === 'classify' && <button className="top-nav-tab active">Classify</button>}
+              </>
+            ) : (
+              <>
+                <button className={`top-nav-tab ${view==='overview'?'active':''}`} onClick={() => { setView('overview'); setMonth(null); }}>Overview</button>
+                <button className={`top-nav-tab ${view==='forecast'?'active':''}`} onClick={() => { setView('forecast'); setMonth(null); }}>Forecast</button>
+                <button className={`top-nav-tab ${view==='budget'?'active':''}`} onClick={() => { setView('budget'); setMonth(null); }}>Budget</button>
+                <button className={`top-nav-tab ${view==='scenarios'?'active':''}`} onClick={() => { setView('scenarios'); setMonth(null); }}>Scenarios</button>
+                <button className={`top-nav-tab ${view==='month'?'active':''}`} onClick={() => { if (month === null) setMonth(new Date().getMonth()); setView('month'); }}>
+                  {view === 'month' && month !== null ? MONTHS_SHORT[month] : 'Monthly'}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Right: Import CSV + settings gear */}
+          {!inSettings && (
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="dropdown">
+                <button className="btn-ghost !py-[5px] !px-3 !text-xs">Import CSV</button>
+                <div className="dropdown-content">
+                  <button onClick={() => triggerImport('checking')}>Checking Account</button>
+                  <button onClick={() => triggerImport('credit')}>Credit Card</button>
                 </div>
-              : <button className="hdr-yr-btn ml-1 border-dashed" onClick={() => setAddingYear(true)}>+</button>
-            }
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="dropdown"><button className="btn-primary">Import CSV</button><div className="dropdown-content"><button onClick={() => triggerImport('checking')}>Checking Account</button><button onClick={() => triggerImport('credit')}>Credit Card</button></div></div>
-            <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
-          </div>
+              </div>
+              <input ref={fileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleFile} />
+              <button onClick={goToSettings} title="Settings"
+                className="hdr-yr-btn !px-2 !py-[5px] text-base leading-none">⚙</button>
+            </div>
+          )}
+
         </div>
-      </div>
-      {/* BODY: sidebar + main */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* SIDEBAR */}
-        <nav className="w-[200px] shrink-0 bg-surface border-r-[0.5px] border-border-subtle py-3 px-2 flex flex-col gap-0.5 overflow-y-auto">
-          <div className="px-2.5 pt-2 pb-3 font-semibold text-sm tracking-[-0.01em] text-text">Views</div>
-          <button className={`sidebar-tab ${view==='overview'?'active':''}`}   onClick={() => { setView('overview');  setMonth(null); setMonthNavExpanded(false); }}>Overview</button>
-          <button className={`sidebar-tab ${view==='forecast'?'active':''}`}   onClick={() => { setView('forecast');  setMonth(null); setMonthNavExpanded(false); }}>Forecast</button>
-          <button className={`sidebar-tab ${view==='budget'?'active':''}`}     onClick={() => { setView('budget');    setMonth(null); setMonthNavExpanded(false); }}>Budget</button>
-          <button className={`sidebar-tab ${view==='scenarios'?'active':''}`}  onClick={() => { setView('scenarios'); setMonth(null); setMonthNavExpanded(false); }}>Scenarios</button>
-          {/* Month View — expandable */}
-          <button className={`sidebar-tab flex justify-between items-center ${view==='month'?'active':''}`} onClick={() => setMonthNavExpanded(v => !v)}>
-            <span>Month View</span>
-            <span className="text-[10px] opacity-60">{showMonthList ? '▾' : '›'}</span>
-          </button>
-          {showMonthList && MONTHS.map((name, i) => (
-            <button key={i} className={`sidebar-month-item${month === i && view === 'month' ? ' active' : ''}`} onClick={() => goToMonth(i)}>{name}</button>
-          ))}
-          <button className={`sidebar-tab ${view==='rules'?'active':''}`}      onClick={() => { setView('rules'); setMonthNavExpanded(false); }}>Rules</button>
-          <button className={`sidebar-tab ${view==='categories'?'active':''}`} onClick={() => { setView('categories'); setMonthNavExpanded(false); }}>Categories</button>
-          {view === 'classify' && <button className="sidebar-tab active">Classify</button>}
-        </nav>
-        {/* MAIN CONTENT */}
-        <main className="flex-1 overflow-y-auto py-8 px-6">
-        {view === 'classify' && <ClassifyView queue={queue} idx={qIdx} categories={categories} onClassify={classify} onSkip={() => classify(queue[qIdx], null)} onDone={done} onSaveCategories={saveCategories} />}
-        {view === 'overview' && <OverviewView year={year} yearSummary={yearSummary} monthData={monthData} categories={categories} budgetEntries={budgetEntries} monthOverrides={monthOverrides} accountBalances={accountBalances} onSelectMonth={m => { setMonth(m); setView('month'); setMonthNavExpanded(true); }} />}
-        {view === 'forecast' && (
-          <ForecastView
-            year={year}
-            incomeSources={incomeSources}
-            budgetEntries={budgetEntries}
-            categories={categories}
-            allTxns={txns}
-            allIncomeAdjusts={incomeAdjusts}
-            allOverrides={monthOverrides}
-            startingBalance={forecastStartBalances[year] ?? 0}
-            onSaveBalance={amount => saveForecastStart(year, amount)}
-            onNavigateToMonth={(y, m) => { setYear(y); setMonth(m); setView('month'); setMonthNavExpanded(true); }}
-            latestAccountBalance={(() => {
-              let latest = null;
-              for (let m = 0; m < 12; m++) {
-                const rec = accountBalances[`balance-${year}-${m}`];
-                if (rec && (!latest || rec.date > latest.date)) latest = rec;
-              }
-              return latest;
-            })()}
-          />
-        )}
-        {view === 'rules' && <RulesView rules={rules} categories={categories} onSaveRules={saveRules} onReapplyRules={reapplyRules} txnCount={Object.values(txns).reduce((s, list) => s + list.length, 0)} />}
-        {view === 'categories' && <CategoriesView categories={categories} onSaveCategories={saveCategories} />}
-        {view === 'budget' && <BudgetView categories={categories} budgetEntries={budgetEntries} onSaveBudgetEntries={saveBudgetEntries} incomeSources={incomeSources} onSaveIncomeSources={saveIncomeSources} year={year} />}
-        {view === 'scenarios' && (
-          <ScenariosView 
-            scenarios={scenarios}
-            incomeSources={incomeSources}
-            budgetEntries={budgetEntries}
-            categories={categories}
-            allTxns={txns}
-            allIncomeAdjusts={incomeAdjusts}
-            allOverrides={monthOverrides}
-            onSave={saveScenarios}
-          />
-        )}
-        {view === 'month' && month !== null && (
-          <MonthView
-            year={year}
-            month={month}
-            data={monthData(year, month)}
-            categories={categories}
-            budgetEntries={budgetEntries}
-            incomeSources={incomeSources}
-            monthOverrides={monthOverrides[`${year}-${month}`] || {}}
-            incomeAdjustments={incomeAdjusts[`${year}-${month}`] || []}
-            getcat={getcat}
-            onUpdateIncome={v => saveIncome(year, month, v)}
-            onUpdateTxn={(id, updates) => updateTxn(year, month, id, updates)}
-            onSaveOverride={(data) => saveMonthOverride(year, month, data)}
-            onSaveIncomeAdjust={(data) => saveIncomeAdjust(year, month, data)}
-            onDelete={deleteTxn}
-            onClearMonth={clearMonthTxns}
-            onImport={triggerImport}
-            onAddManual={addManual}
-            accountBalance={accountBalances[`balance-${year}-${month}`] || null}
-            lastKnownBalance={(() => {
-              for (let m = month - 1; m >= 0; m--) {
-                const rec = accountBalances[`balance-${year}-${m}`];
-                if (rec) return rec;
-              }
-              return null;
-            })()}
-          />
-        )}
-        </main>
-      </div>
+      </header>
+
+      {/* MONTH SUB-NAV — shown only when Month View is active */}
+      {view === 'month' && (
+        <div className="shrink-0 bg-surface border-b-[0.5px] border-border-subtle px-5 flex items-center gap-0.5 h-9"
+             style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+          {MONTHS_SHORT.map((name, i) => {
+            const hasData = (txns[`${year}-${i}`] || []).length > 0;
+            const isSelected = month === i;
+            return (
+              <button key={i} onClick={() => goToMonth(i)}
+                className={`relative px-2.5 py-1 text-xs rounded-md cursor-pointer font-sans transition-all border-0 ${
+                  isSelected
+                    ? 'bg-accent text-white font-semibold'
+                    : 'bg-transparent text-muted hover:text-text hover:bg-raised'
+                }`}>
+                {name}
+                {hasData && !isSelected && (
+                  <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-accent opacity-50" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* MAIN CONTENT */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-[1100px] mx-auto py-10 px-6">
+          {view === 'classify' && <ClassifyView queue={queue} idx={qIdx} categories={categories} onClassify={classify} onSkip={() => classify(queue[qIdx], null)} onDone={done} onSaveCategories={saveCategories} />}
+          {view === 'overview' && <OverviewView year={year} yearSummary={yearSummary} monthData={monthData} categories={categories} budgetEntries={budgetEntries} monthOverrides={monthOverrides} accountBalances={accountBalances} onSelectMonth={m => { setMonth(m); setView('month'); }} />}
+          {view === 'forecast' && (
+            <ForecastView
+              year={year}
+              incomeSources={incomeSources}
+              budgetEntries={budgetEntries}
+              categories={categories}
+              allTxns={txns}
+              allIncomeAdjusts={incomeAdjusts}
+              allOverrides={monthOverrides}
+              startingBalance={forecastStartBalances[year] ?? 0}
+              onSaveBalance={amount => saveForecastStart(year, amount)}
+              onNavigateToMonth={(y, m) => { setYear(y); setMonth(m); setView('month'); }}
+              latestAccountBalance={(() => {
+                let latest = null;
+                for (let m = 0; m < 12; m++) {
+                  const rec = accountBalances[`balance-${year}-${m}`];
+                  if (rec && (!latest || rec.date > latest.date)) latest = rec;
+                }
+                return latest;
+              })()}
+            />
+          )}
+          {view === 'rules' && <RulesView rules={rules} categories={categories} onSaveRules={saveRules} onReapplyRules={reapplyRules} txnCount={Object.values(txns).reduce((s, list) => s + list.length, 0)} />}
+          {view === 'categories' && <CategoriesView categories={categories} onSaveCategories={saveCategories} />}
+          {view === 'budget' && <BudgetView categories={categories} budgetEntries={budgetEntries} onSaveBudgetEntries={saveBudgetEntries} incomeSources={incomeSources} onSaveIncomeSources={saveIncomeSources} year={year} />}
+          {view === 'scenarios' && (
+            <ScenariosView
+              scenarios={scenarios}
+              incomeSources={incomeSources}
+              budgetEntries={budgetEntries}
+              categories={categories}
+              allTxns={txns}
+              allIncomeAdjusts={incomeAdjusts}
+              allOverrides={monthOverrides}
+              onSave={saveScenarios}
+            />
+          )}
+          {view === 'month' && month !== null && (
+            <MonthView
+              year={year}
+              month={month}
+              data={monthData(year, month)}
+              categories={categories}
+              budgetEntries={budgetEntries}
+              incomeSources={incomeSources}
+              monthOverrides={monthOverrides[`${year}-${month}`] || {}}
+              incomeAdjustments={incomeAdjusts[`${year}-${month}`] || []}
+              getcat={getcat}
+              onUpdateIncome={v => saveIncome(year, month, v)}
+              onUpdateTxn={(id, updates) => updateTxn(year, month, id, updates)}
+              onSaveOverride={(data) => saveMonthOverride(year, month, data)}
+              onSaveIncomeAdjust={(data) => saveIncomeAdjust(year, month, data)}
+              onDelete={deleteTxn}
+              onClearMonth={clearMonthTxns}
+              onImport={triggerImport}
+              onAddManual={addManual}
+              accountBalance={accountBalances[`balance-${year}-${month}`] || null}
+              lastKnownBalance={(() => {
+                for (let m = month - 1; m >= 0; m--) {
+                  const rec = accountBalances[`balance-${year}-${m}`];
+                  if (rec) return rec;
+                }
+                return null;
+              })()}
+            />
+          )}
+        </div>
+      </main>
+
     </div>
   );
 }

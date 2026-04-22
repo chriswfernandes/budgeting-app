@@ -1,7 +1,41 @@
 import { useState } from "react";
 import { resolveMonthBudget, computeDerivedMonthlyAmount, isIncomeCat, isCCPaymentCat } from "./utils";
+import { PieChart, Pie, Cell, Label } from "recharts";
 
 const fmt = n => new Intl.NumberFormat('en-CA', { style: 'currency', currency: 'CAD' }).format(Math.abs(n));
+const fmtCompact = n => { const a = Math.abs(n); if (a >= 10000) return `$${(a/1000).toFixed(0)}K`; if (a >= 1000) return `$${(a/1000).toFixed(1)}K`; return fmt(n); };
+
+function BudgetDonut({ amount, total, color }) {
+  if (!amount) return null;
+  const other = Math.max(total - amount, 0.001);
+  const data = [{ value: amount }, { value: other }];
+  const pct = total > 0 ? Math.round((amount / total) * 100) : 100;
+  return (
+    <div className="flex flex-col items-center mb-6 pt-1">
+      <PieChart width={160} height={160}>
+        <Pie
+          data={data} cx={75} cy={75}
+          innerRadius={50} outerRadius={70}
+          dataKey="value" startAngle={90} endAngle={-270}
+          strokeWidth={0} isAnimationActive={false}
+        >
+          <Label content={({ viewBox }) => {
+            const { cx, cy } = viewBox;
+            return (
+              <text x={cx} y={cy} textAnchor="middle">
+                <tspan x={cx} dy="-0.25em" fontSize="14" fontWeight="600" fill="var(--color-text)">{fmtCompact(amount)}</tspan>
+                <tspan x={cx} dy="1.45em" fontSize="11" fill="var(--color-muted)">/ mo</tspan>
+              </text>
+            );
+          }} />
+          <Cell fill={color} />
+          <Cell fill="var(--color-border-subtle)" />
+        </Pie>
+      </PieChart>
+      <p className="text-xs text-muted -mt-1">{pct}% of total budget</p>
+    </div>
+  );
+}
 
 const fmtDate = (dateStr) => {
   if (!dateStr) return '';
@@ -535,7 +569,8 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
   const catListBtn = (isSelected, onClick, children) => (
     <button
       onClick={onClick}
-      className={`flex justify-between items-center w-full px-3 py-2 rounded-lg border-0 cursor-pointer text-left text-[13px] font-sans text-text transition-colors ${isSelected ? 'bg-raised' : 'bg-transparent hover:bg-raised'}`}
+      style={isSelected ? { borderLeft: '2px solid var(--color-accent)', borderRight: 'none', borderTop: 'none', borderBottom: 'none' } : { border: 'none' }}
+      className={`flex justify-between items-center w-full px-3 py-2 rounded-lg cursor-pointer text-left text-[13px] font-sans text-text transition-colors ${isSelected ? 'bg-raised' : 'bg-transparent hover:bg-raised'}`}
     >
       {children}
     </button>
@@ -544,7 +579,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
   return (
     <div>
       <div className="mb-7">
-        <h1 className="text-[26px] font-medium mb-1">Budgeting for {year}</h1>
+        <h1 className="text-[28px] font-semibold mb-1">Budgeting for {year}</h1>
         <p className="text-sm text-muted">Set spending limits and manage your income streams.</p>
       </div>
 
@@ -557,34 +592,41 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
       {activeTab === 'outgoing' && (
         <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
           <div className="card p-4 sticky top-[120px]">
-            <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-3">Categories</p>
-            <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted mb-3">Categories</p>
+            <div className="flex flex-col gap-0.5">
               {categories.filter(c => !isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id)).map(c => {
-                const display = getCatDisplayValue(c.id);
+                const amount = resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth);
                 return catListBtn(selectedCatId === c.id, () => setSelectedCatId(c.id), (
                   <>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} />
                       <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
                     </div>
-                    <span className={`text-[11px] ${display ? 'text-text' : 'text-muted'}`}>{display || 'No limit'}</span>
+                    {amount != null
+                      ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent-bg text-accent shrink-0">{fmtCompact(amount)}</span>
+                      : <span className="text-[11px] text-muted opacity-40">—</span>
+                    }
                   </>
                 ));
               })}
             </div>
             <div className="mt-4 pt-3 border-t-[0.5px] border-border-subtle flex justify-between text-[13px]">
-              <span className="text-muted">Active this month:</span>
-              <span className="font-medium">{fmt(activeMonthTotal)}</span>
+              <span className="text-muted">Total budgeted:</span>
+              <span className="font-medium text-success">{fmt(activeMonthTotal)}/mo</span>
             </div>
           </div>
 
           <div className="card p-7 min-h-[300px]">
             {selectedCat ? (
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="w-4 h-4 rounded-full" style={{ background: selectedCat.color }} />
-                  <h2 className="text-xl font-medium">{selectedCat.label}</h2>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: selectedCat.color }} />
+                  <h2 className="text-xl font-semibold">{selectedCat.label}</h2>
                 </div>
+                {(() => {
+                  const amt = resolveMonthBudget(budgetEntries, {}, selectedCatId, curYear, curMonth);
+                  return amt != null ? <BudgetDonut amount={amt} total={activeMonthTotal} color={selectedCat.color} /> : null;
+                })()}
                 <EntryList
                   key={selectedCatId}
                   entries={getCatEntries(selectedCatId)}
@@ -605,34 +647,41 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
       {activeTab === 'income' && (
         <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
           <div className="card p-4 sticky top-[120px]">
-            <p className="text-[11px] text-muted uppercase tracking-[0.06em] mb-3">Income Categories</p>
-            <div className="flex flex-col gap-1">
+            <p className="text-xs text-muted mb-3">Income Categories</p>
+            <div className="flex flex-col gap-0.5">
               {categories.filter(c => isIncomeCat(categories, c.id) && !isCCPaymentCat(categories, c.id)).map(c => {
-                const display = getCatDisplayValue(c.id);
+                const amount = resolveMonthBudget(budgetEntries, {}, c.id, curYear, curMonth);
                 return catListBtn(selectedIncomeCatId === c.id, () => setSelectedIncomeCatId(c.id), (
                   <>
                     <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ background: c.color }} />
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color }} />
                       <span style={{ marginLeft: c.parentId ? 12 : 0 }}>{c.label}</span>
                     </div>
-                    <span className={`text-[11px] ${display ? 'text-text' : 'text-muted'}`}>{display || 'No target'}</span>
+                    {amount != null
+                      ? <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-accent-bg text-accent shrink-0">{fmtCompact(amount)}</span>
+                      : <span className="text-[11px] text-muted opacity-40">—</span>
+                    }
                   </>
                 ));
               })}
             </div>
             <div className="mt-4 pt-3 border-t-[0.5px] border-border-subtle flex justify-between text-[13px]">
               <span className="text-muted">Expected this month:</span>
-              <span className="font-medium text-success">{fmt(activeIncomeCatTotal)}</span>
+              <span className="font-medium text-success">{fmt(activeIncomeCatTotal)}/mo</span>
             </div>
           </div>
 
           <div className="card p-7 min-h-[300px]">
             {selectedIncomeCat ? (
               <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="w-4 h-4 rounded-full" style={{ background: selectedIncomeCat.color }} />
-                  <h2 className="text-xl font-medium">{selectedIncomeCat.label}</h2>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="w-4 h-4 rounded-full shrink-0" style={{ background: selectedIncomeCat.color }} />
+                  <h2 className="text-xl font-semibold">{selectedIncomeCat.label}</h2>
                 </div>
+                {(() => {
+                  const amt = resolveMonthBudget(budgetEntries, {}, selectedIncomeCatId, curYear, curMonth);
+                  return amt != null ? <BudgetDonut amount={amt} total={activeIncomeCatTotal} color={selectedIncomeCat.color} /> : null;
+                })()}
                 <EntryList
                   key={selectedIncomeCatId}
                   entries={getCatEntries(selectedIncomeCatId)}
@@ -654,7 +703,7 @@ export default function BudgetView({ categories, budgetEntries, onSaveBudgetEntr
         <div className="grid grid-cols-[280px_1fr] gap-6 items-start">
           <div className="card p-4 sticky top-[120px]">
             <div className="flex justify-between items-center mb-3">
-              <p className="text-[11px] text-muted uppercase tracking-[0.06em]">Income Sources</p>
+              <p className="text-xs text-muted">Income Sources</p>
               {!isAddingSource && (
                 <button className="btn-ghost text-[11px] py-[3px] px-2" onClick={() => setIsAddingSource(true)}>+ Add</button>
               )}
